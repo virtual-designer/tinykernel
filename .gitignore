@@ -1,0 +1,6 @@
+*.img
+*.bin
+*.o
+*.elf
+*.a
+/tmp
