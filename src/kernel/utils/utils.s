@@ -75,3 +75,24 @@ save_registers:
     
     popal
     ret
+
+.extern panic_message_kprintf
+.extern print_registers
+
+.globl panic
+.type panic, @function
+panic:
+    addl $4, %esp
+    pushl panic_reg_state
+    call save_registers
+    popl %ebx
+    movl %esp, %eax
+    movl %eax, 12(%ebx)
+    call panic_message_kprintf
+    pushl %ebx
+    call print_registers
+    call halt
+
+.data
+panic_reg_state:
+    .fill 52

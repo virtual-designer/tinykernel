@@ -13,7 +13,8 @@ struct register_state
     uint16_t cs, ds, es, fs, gs, ss;
 } __attribute__ ((packed));
 
-void shutdown (void);
+_Noreturn void shutdown (void);
+_Noreturn void __attribute__((format(printf, 1, 2))) panic (const char *format, ...);
 _Noreturn void halt (void);
 void outb (uint16_t port, uint8_t value);
 void save_registers (struct register_state *out);

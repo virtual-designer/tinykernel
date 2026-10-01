@@ -321,19 +321,14 @@ kprintf_int_type (const void *ptr, enum kp_type type, enum kp_length length,
     return -1;
 }
 
-_Noreturn void
-panic (const char *format, ...)
+void
+panic_message_kprintf (const char *format, ...)
 {
-    struct register_state state = { 0 };
-    save_registers (&state);
-
     void **argp = ((void **) &format) + 1;
     puts ("***************************************");
     puts ("********* KERNEL PANIC: HALT **********");
     puts ("***************************************");
     kvprintf (argp, format);
-    print_registers (&state);
-    halt ();
 }
 
 int
