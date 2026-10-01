@@ -1,5 +1,6 @@
 #include "stddef.h"
 #include "stdint.h"
+#include "kprintf.h"
 #include "utils/utils.h"
 
 static const uint16_t VGA_CRTC_INDEX = 0x3D4;
@@ -66,6 +67,7 @@ stdio_init (void)
 {
     vga_clear ();
     vga_enable_block_cursor ();
+    kprintf_init ();
 }
 
 static inline void

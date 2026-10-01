@@ -3,8 +3,8 @@
 #include "stddef.h"
 #include "stdint.h"
 #include "stdio/stdio.h"
-#include "utils/utils.h"
 #include "utils/debug.h"
+#include "utils/utils.h"
 
 enum kp_state
 {
@@ -21,7 +21,8 @@ enum kp_length
     KP_LEN_LONG,
     KP_LEN_LONG_LONG,
     KP_LEN_SIZE,
-    KP_LEN_PTR
+    KP_LEN_PTR,
+    __KP_LEN_COUNT
 };
 
 enum kp_type
@@ -31,7 +32,6 @@ enum kp_type
     KP_TYPE_UNSIGNED_HEX,
     KP_TYPE_UNSIGNED_OCT,
     KP_TYPE_UNSIGNED_BIN,
-    KP_TYPE_UNSIGNED_SIZE,
     KP_TYPE_UNSIGNED_PTR,
     KP_TYPE_CHAR,
     KP_TYPE_STRING,
@@ -44,6 +44,13 @@ enum kp_err
     KP_ERR_INVALID_STATE
 };
 
+struct kp_opts
+{
+    bool pad_zeros;
+};
+
+#define KP_OPTS_DEFAULT ((struct kp_opts){ .pad_zeros = false })
+
 static const size_t int_type_size_lut[] = {
     [KP_LEN_DEFAULT] = sizeof (int),
     [KP_LEN_SHORT] = sizeof (short int),
@@ -53,10 +60,40 @@ static const size_t int_type_size_lut[] = {
     [KP_LEN_PTR] = sizeof (size_t),
 };
 
-static int
-kprintf_int_decimal (unsigned long long int value, enum kp_length length,
-                     bool is_signed)
+static size_t int_type_max_hex_digits_lut[__KP_LEN_COUNT];
+static size_t int_type_max_oct_digits_lut[__KP_LEN_COUNT];
+static size_t int_type_max_bin_digits_lut[__KP_LEN_COUNT];
+
+void
+kprintf_init (void)
 {
+    __builtin_memcpy (int_type_max_hex_digits_lut, int_type_size_lut,
+                      sizeof int_type_max_hex_digits_lut);
+    __builtin_memcpy (int_type_max_oct_digits_lut, int_type_size_lut,
+                      sizeof int_type_max_oct_digits_lut);
+    __builtin_memcpy (int_type_max_bin_digits_lut, int_type_size_lut,
+                      sizeof int_type_max_bin_digits_lut);
+
+    for (int i = 0; i < __KP_LEN_COUNT; i++)
+    {
+        int_type_max_hex_digits_lut[i] *= 2U;
+        int_type_max_bin_digits_lut[i] *= 8U;
+
+        size_t old_oct = int_type_max_oct_digits_lut[i];
+        int_type_max_oct_digits_lut[i]
+            = (int_type_max_oct_digits_lut[i] * 8U) / 3U;
+
+        if ((int_type_max_oct_digits_lut[i] * 3U) / 8U != old_oct)
+            int_type_max_oct_digits_lut[i]++;
+    }
+}
+
+static int
+kprintf_int_decimal (unsigned long long int value, const struct kp_opts *opts,
+                     enum kp_length length, bool is_signed)
+{
+    (void) opts;
+
     const size_t size = int_type_size_lut[length];
     int count = 0;
 
@@ -96,15 +133,19 @@ kprintf_int_decimal (unsigned long long int value, enum kp_length length,
 }
 
 static int
-kprintf_int_hex (unsigned long long int value)
+kprintf_int_hex (unsigned long long int value, const struct kp_opts *opts,
+                 enum kp_length length)
 {
+    const size_t hex_digits = int_type_max_hex_digits_lut[length];
     int count = 0;
-    char buf[64];
+    char buf[18] = { '0', '0', '0', '0', '0', '0', '0', '0', '0',
+                     '0', '0', '0', '0', '0', '0', '0', '0', 0 };
+
     int buf_len = 0;
 
     do
     {
-        if (buf_len >= sizeof buf)
+        if (buf_len >= sizeof buf - 1)
             return -1;
 
         uint8_t digit = (uint8_t) (value % 16);
@@ -114,6 +155,9 @@ kprintf_int_hex (unsigned long long int value)
 
     count += buf_len;
 
+    if (opts->pad_zeros)
+        buf_len = hex_digits < 16 ? hex_digits : 16;
+
     while (buf_len--)
         putc_noflush (buf[buf_len]);
 
@@ -121,15 +165,21 @@ kprintf_int_hex (unsigned long long int value)
 }
 
 static int
-kprintf_int_oct (unsigned long long int value)
+kprintf_int_oct (unsigned long long int value, const struct kp_opts *opts,
+                 enum kp_length length)
 {
+    const size_t oct_digits = int_type_max_oct_digits_lut[length];
     int count = 0;
-    char buf[128];
+    char buf[25] = { '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
+
+                     '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
+
+                     0 };
     int buf_len = 0;
 
     do
     {
-        if (buf_len >= sizeof buf)
+        if (buf_len >= sizeof buf - 1)
             return -1;
 
         uint8_t digit = (uint8_t) (value % 8);
@@ -139,6 +189,9 @@ kprintf_int_oct (unsigned long long int value)
 
     count += buf_len;
 
+    if (opts->pad_zeros)
+        buf_len = oct_digits < 22 ? oct_digits : 22;
+
     while (buf_len--)
         putc_noflush (buf[buf_len]);
 
@@ -146,15 +199,25 @@ kprintf_int_oct (unsigned long long int value)
 }
 
 static int
-kprintf_int_bin (unsigned long long int value)
+kprintf_int_bin (unsigned long long int value, const struct kp_opts *opts,
+                 enum kp_length length)
 {
+    const size_t bin_digits = int_type_max_bin_digits_lut[length];
     int count = 0;
-    char buf[128];
+    char buf[65] = { '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
+                     '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
+                     '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
+
+                     '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
+                     '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
+                     '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
+
+                     0 };
     int buf_len = 0;
 
     do
     {
-        if (buf_len >= sizeof buf)
+        if (buf_len >= sizeof buf - 1)
             return -1;
 
         uint8_t digit = (uint8_t) (value & 0x1);
@@ -163,6 +226,9 @@ kprintf_int_bin (unsigned long long int value)
     } while (value);
 
     count += buf_len;
+
+    if (opts->pad_zeros)
+        buf_len = bin_digits < 64 ? bin_digits : 64;
 
     while (buf_len--)
         putc_noflush (buf[buf_len]);
@@ -185,7 +251,7 @@ kprintf_string (const char *str)
 
 static int
 kprintf_int_type (const void *ptr, enum kp_type type, enum kp_length length,
-                  int *inc)
+                  const struct kp_opts *opts, int *inc)
 {
     union
     {
@@ -195,70 +261,61 @@ kprintf_int_type (const void *ptr, enum kp_type type, enum kp_length length,
         unsigned short sval;
         size_t szval;
     } value = { .llval = 0 };
-    int size = 0;
+    const size_t byte_len = int_type_size_lut[length];
 
     switch (length)
     {
         case KP_LEN_DEFAULT:
             value.ival = *(unsigned int *) ptr;
-            size = sizeof (int);
             break;
 
         case KP_LEN_SHORT:
             value.sval = *(unsigned short int *) ptr;
-            size = sizeof (short int);
             break;
 
         case KP_LEN_LONG:
             value.lval = *(unsigned long int *) ptr;
-            size = sizeof (long int);
             break;
 
         case KP_LEN_LONG_LONG:
             value.llval = *(unsigned long long int *) ptr;
-            size = sizeof (long long int);
             break;
 
         case KP_LEN_SIZE:
             value.szval = *(size_t *) ptr;
-            size = sizeof (size_t);
             break;
 
         case KP_LEN_PTR:
             value.llval = (size_t) *(void **) ptr;
-            size = sizeof (size_t);
             break;
 
         default:
             return -1;
     }
 
-    *inc = size < 4 ? 1 : (size / sizeof (size_t));
+    *inc = byte_len < 4 ? 1 : (byte_len / sizeof (size_t));
 
     switch (type)
     {
         case KP_TYPE_SIGNED_DECIMAL:
-            return kprintf_int_decimal (value.llval, length, true);
+            return kprintf_int_decimal (value.llval, opts, length, true);
 
         case KP_TYPE_UNSIGNED_DECIMAL:
-            return kprintf_int_decimal (value.llval, length, false);
+            return kprintf_int_decimal (value.llval, opts, length, false);
 
         case KP_TYPE_UNSIGNED_HEX:
-            return kprintf_int_hex (value.llval);
+            return kprintf_int_hex (value.llval, opts, length);
 
         case KP_TYPE_UNSIGNED_OCT:
-            return kprintf_int_oct (value.llval);
+            return kprintf_int_oct (value.llval, opts, length);
 
         case KP_TYPE_UNSIGNED_BIN:
-            return kprintf_int_bin (value.llval);
-
-        case KP_TYPE_UNSIGNED_SIZE:
-            return kprintf_int_decimal (value.llval, KP_LEN_SIZE, false);
+            return kprintf_int_bin (value.llval, opts, length);
 
         case KP_TYPE_UNSIGNED_PTR:
             putc_noflush ('0');
             putc_noflush ('x');
-            return kprintf_int_hex (value.llval) + 2;
+            return kprintf_int_hex (value.llval, opts, length) + 2;
     }
 
     return -1;
@@ -267,23 +324,23 @@ kprintf_int_type (const void *ptr, enum kp_type type, enum kp_length length,
 _Noreturn void
 panic (const char *format, ...)
 {
-    struct register_state state = {0};
+    struct register_state state = { 0 };
     save_registers (&state);
 
     void **argp = ((void **) &format) + 1;
-    puts("***************************************");
-    puts("********* KERNEL PANIC: HALT **********");
-    puts("***************************************");
-    kvprintf(argp, format);
+    puts ("***************************************");
+    puts ("********* KERNEL PANIC: HALT **********");
+    puts ("***************************************");
+    kvprintf (argp, format);
     print_registers (&state);
-    halt();
+    halt ();
 }
 
 int
 kprintf (const char *format, ...)
 {
     void **argp = ((void **) &format) + 1;
-    return kvprintf(argp, format);
+    return kvprintf (argp, format);
 }
 
 int
@@ -293,6 +350,7 @@ kvprintf (void **argp, const char *format)
     enum kp_state state = KP_STATE_DEFAULT;
     enum kp_length length = KP_LEN_DEFAULT;
     enum kp_type type = -1;
+    struct kp_opts opts = KP_OPTS_DEFAULT;
 
     while (*format)
     {
@@ -322,8 +380,16 @@ kvprintf (void **argp, const char *format)
                         count++;
                         state = KP_STATE_DEFAULT;
                         format++;
-                        break;
+                        continue;
 
+                    case '0':
+                        opts.pad_zeros = true;
+                        format++;
+                        break;
+                }
+
+                switch (*format)
+                {
                     case 'l':
                         format++;
 
@@ -378,10 +444,6 @@ kvprintf (void **argp, const char *format)
                         type = KP_TYPE_UNSIGNED_BIN;
                         break;
 
-                    case 'z':
-                        type = KP_TYPE_UNSIGNED_SIZE;
-                        break;
-
                     case 'p':
                         type = KP_TYPE_UNSIGNED_PTR;
                         break;
@@ -418,7 +480,8 @@ kvprintf (void **argp, const char *format)
                             break;
 
                         default:
-                            ret = kprintf_int_type (argp, type, length, &inc);
+                            ret = kprintf_int_type (argp, type, length, &opts,
+                                                    &inc);
                             argp += inc;
                             break;
                     }
@@ -432,6 +495,7 @@ kvprintf (void **argp, const char *format)
                     count += ret;
                     state = KP_STATE_DEFAULT;
                     length = KP_LEN_DEFAULT;
+                    opts = KP_OPTS_DEFAULT;
                     type = -1;
                 }
 

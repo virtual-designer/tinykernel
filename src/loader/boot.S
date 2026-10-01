@@ -12,6 +12,8 @@ _start:
     movw $0x00, %ax
     movw %ax, %ds
     movw %ax, %es
+
+    movb %dl, boot_drive_id
     
     call probe_mem
     leal e820_mem_table_ptr, %edi
@@ -38,7 +40,7 @@ kernel_exec:
 
     leaw read_kernel_dpkt, %si
     movb $0x42, %ah
-    movb $0x80, %dl
+    movb boot_drive_id, %dl
     int $0x13
     jc 3f
     test %ah, %ah
@@ -203,6 +205,10 @@ e820_mem_table_ptr:
 boot_params:
     .long e820_mem_table_ptr
     .byte 0x0
+
+.align 2
+boot_drive_id:
+    .byte 0
 
 proglen = . - _start
 .fill 510 - proglen

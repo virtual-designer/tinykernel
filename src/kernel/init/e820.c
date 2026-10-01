@@ -25,7 +25,7 @@ e820_init (const struct e820_table *table)
             continue;
 
         const char *type_str = e820_type_lut[entry->type];
-        kprintf ("e820: #%hu: [0x%llx-0x%llx]: %s [%u]\n", i, entry->base,
+        kprintf ("e820: #%hu: [0x%0llx-0x%0llx]: %s [%u]\n", i, entry->base,
                  entry->base + entry->length, type_str, entry->type);
     }
 }

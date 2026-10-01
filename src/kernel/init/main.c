@@ -11,7 +11,7 @@ kmain (struct boot_params *kargs)
     stdio_init ();
     kprintf ("TinyKernel version 1.0.0 -- Booting\n");
 
-    if (kargs->signature != KLOADER_SIGNATURE)
+    if (kargs->signature != 0x1)
         panic ("Boot signature mismatch: Error occurred during "
                "bootloader-to-kernel handoff\n");
 

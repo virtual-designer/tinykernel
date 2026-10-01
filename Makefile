@@ -25,6 +25,7 @@ KERNEL_SOURCES := \
 	src/kernel/init/e820.c \
 	src/kernel/stdio/kprintf.c \
 	src/kernel/stdio/stdio.c \
+	src/kernel/math/math.c \
 	src/kernel/utils/utils.s \
 	src/kernel/utils/debug.c \
 	src/kernel/init/entry.s
