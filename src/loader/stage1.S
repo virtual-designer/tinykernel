@@ -1,7 +1,12 @@
 #include <kernel/init/boot.h>
 
+.extern putc
+.extern puts
+
+STAGE2_LOAD_ADDR = 0x1000
+
 .code16
-.text
+.section .text.boot, "ax", @progbits
 
 .globl _start
 _start:
@@ -20,14 +25,14 @@ _start:
     movl %eax, (%edi)
     movw %bp, 4(%edi)
     movw %si, 6(%edi)
-    call kernel_exec
+    call stage2_exec
 
-.type kernel_exec, @function
-kernel_exec:
+.type stage2_exec, @function
+stage2_exec:
     # Verify BIOS Extended Mode
     movb $0x41, %ah
     movw $0x55AA, %bx
-    movb $0x80, %dl
+    movb boot_drive_id, %dl
     int $0x13
     jc 2f
     cmpw $0xAA55, %bx
@@ -35,10 +40,14 @@ kernel_exec:
     testw $1, %cx
     jz 2f
 
-    leaw read_kernel_bios_extended_msg, %si
+    leaw read_stage2_bios_extended_msg, %si
     call puts
+    
+    leaw read_stage2_dpkt, %si
+    movl $STAGE2_LOAD_ADDR, %eax
+    movl %eax, 4(%si)
 
-    leaw read_kernel_dpkt, %si
+    leaw read_stage2_dpkt, %si
     movb $0x42, %ah
     movb boot_drive_id, %dl
     int $0x13
@@ -46,62 +55,40 @@ kernel_exec:
     test %ah, %ah
     jnz 3f
 
-    leaw read_kernel_dpkt, %si
+    leaw read_stage2_dpkt, %si
     movl 4(%si), %eax
     movw %cs, %bx
     pushw %bx
     pushw %ax
     movl %esp, %eax
+
     leal boot_params, %edi
+    movb $KLOADER_STAGE1_SIGNATURE, 4(%edi)
+    movb boot_drive_id, %dl
+    movb %dl, 5(%edi)
+    
     pushl %edi
-    movb $KLOADER_SIGNATURE, 4(%edi)
     lcallw *(%eax)
-    leaw exec_kernel_errmsg, %si
+    leaw exec_stage2_errmsg, %si
     call puts
     jmp 1f
 
 2:
-    leaw read_kernel_bios_errmsg, %si
+    leaw read_stage2_read_errmsg, %si
     call puts
     jmp 1f
 3:
-    leaw read_kernel_read_errmsg, %si
+    leaw read_stage2_read_errmsg, %si
     call puts
 1:
     hlt
     jmp 1b
 
-.align 4
-read_kernel_dpkt:
-    .byte 0x10
-    .byte 0x00
-    .word 0x20
-    .long 0x00008000
-    .quad 0x01
-
-.type putc, @function
-putc:
-    movb $0x0E, %ah
-    xorw %bx, %bx
-    int $0x10
-    ret
-
-.type puts, @function
-puts:
-1:
-    lodsb
-    testb %al, %al
-    jz 2f
-    call putc
-    jmp 1b
-2:
-    ret
+#include "common.S"
 
 /* %esi - entry count
    %ebp - total size
    %eax - the beginning pointer */
-MEM_PROBE_ADDR = 0x7f00
-MEM_SMAP_SIGNATURE = 0x534D4150
 
 .type probe_mem, @function
 probe_mem:
@@ -164,36 +151,25 @@ probe_mem:
     xorl %esi, %esi
     lea probe_mem_errmsg, %si
     call puts
-
-
-    cli
+1:
     hlt
-    
-    ret
+    jmp 1b
 
 .align 2
-exec_kernel_errmsg:
-    .string "Kernel exec failure: Returned to loader"
+exec_stage2_errmsg:
+    .string "exec2 failure: returned to stage1 loader\r\n"
 
 .align 2
-read_kernel_read_errmsg:
-    .string "Disk read failure"
+read_stage2_read_errmsg:
+    .string "exec2 failure: disk read failed\r\n"
 
 .align 2
-read_kernel_read_done_msg:
-    .string "Disk read successful"
-
-.align 2
-read_kernel_bios_errmsg:
-    .string "BIOS doesn't support extended mode"
-
-.align 2
-read_kernel_bios_extended_msg:
-    .string "BIOS supports extended mode"
+read_stage2_bios_extended_msg:
+    .string "BIOS supports extended mode\r\n"
 
 .align 2
 probe_mem_errmsg:
-    .string "Memory probe failed"
+    .string "Memory probe failed\r\n"
 
 .align 2
 e820_mem_table_ptr:
@@ -205,12 +181,16 @@ e820_mem_table_ptr:
 boot_params:
     .long e820_mem_table_ptr
     .byte 0x0
+    .byte 0x0
 
 .align 2
 boot_drive_id:
     .byte 0
 
-proglen = . - _start
-.fill 510 - proglen
-.byte 0x55
-.byte 0xAA
+.align 4
+read_stage2_dpkt:
+    .byte 0x10
+    .byte 0x00
+    .word 0x06
+    .long 0x00000000
+    .quad 0x01
