@@ -63,7 +63,7 @@ clean:
 	$(RM) $(LOADER1_OBJECTS) $(LOADER2_OBJECTS) $(KERNEL_OBJECTS)
 
 run: $(IMG)
-	$(QEMU) -enable-kvm -cpu host -m 8G -vga std -d int -drive format=raw,file=$(IMG)
+	$(QEMU) -enable-kvm -cpu host -machine pc,acpi=on -m 8G -vga std -d int -drive format=raw,file=$(IMG)
 
 .SUFFIXES: .S .o
 
