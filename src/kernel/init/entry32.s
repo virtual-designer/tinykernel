@@ -1,17 +1,21 @@
-.code16
+.code32
 .section .text.boot, "ax", @progbits
 
 .extern kmain
 
 .globl _start
-_start:
-    .byte 0xde
-    .byte 0xad
-    .byte 0xbe
-    .byte 0xef
+_start:    
     movl $stack_top, %esp
-    // cli
+
+    /* %esi holds the (struct boot_params *) pointer,
+       passed by loader2 during handoff. */
+    push %esi
+    call kmain
+
+    cli
+1:
     hlt
+    jmp 1b
 
 .bss
 .align 4

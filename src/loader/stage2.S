@@ -125,19 +125,43 @@ nmi_disable:
     sti
     ret
 
+KERNEL_LOAD_ADDR = 0x100000
+KERNEL_LOAD_SECTORS = 0x20
+KERNEL_LOAD_LBA_START = 0x08
+
 .align 4
 read_kernel_dpkt:
     .byte 0x10
     .byte 0x00
-    .word 0x20
-    .long 0x00000000
-    .quad 0x07
+    .word 0x01
+    .long read_kernel_buffer
+    .quad KERNEL_LOAD_LBA_START
+
+.align 2
+read_kernel_buffer:
+    .fill 512
+
+.align 2
+read_kernel_errmsg:
+    .string "kexec: disk I/O error\r\n"
 
 .code16
 .type read_kernel_from_disk, @function
 read_kernel_from_disk:
-    movb %bl, %al
-    call putc
+    leaw read_kernel_dpkt, %si
+    movb $0x42, %ah
+    movb boot_drive_id, %dl
+    int $0x13
+    jc 1f
+    test %ah, %ah
+    jnz 1f
+    xorw %bx, %bx
+    ret
+
+1:
+    leaw read_kernel_errmsg, %si
+    call puts
+    movw $-1, %bx
     ret
 
 .code32
@@ -207,24 +231,51 @@ call_rm16:
 .type stage2_main, @function
 stage2_main:
     cli
+    xorl %ecx, %ecx
 
-    movb $'H', %bl
-    pushw $0
-    pushw $read_kernel_from_disk
-    call call_rm16
-
-    movb $'i', %bl
-    pushw $0
-    pushw $read_kernel_from_disk
-    call call_rm16
-
-    movb $'!', %bl
-    pushl $read_kernel_from_disk
-    call call_rm16
-    
 1:
-    hlt
-    jmp 1b
+    pushl %ecx
+
+    pushw $0
+    pushw $read_kernel_from_disk
+    call call_rm16
+    addl $4, %esp
+    cmpw $0, %bx
+    jne 2f
+    
+    popl %ecx
+    
+    leal read_kernel_buffer, %esi
+    movl $KERNEL_LOAD_ADDR, %edi
+
+    movl $512, %eax
+    mull %ecx
+    addl %eax, %edi
+
+    cld
+    pushl %ecx
+    movl $512, %ecx
+    rep movsb
+    popl %ecx
+
+    leal read_kernel_dpkt, %eax
+    movl 8(%eax), %ebx
+    incl %ebx
+    movl %ebx, 8(%eax)
+
+    incl %ecx
+    cmpl $KERNEL_LOAD_SECTORS, %ecx
+    jne 1b
+    jmp 3f
+2:
+    halt
+3:
+    movl $KERNEL_LOAD_ADDR, %edi
+    movl boot_params_ptr, %esi
+    movb $KLOADER_STAGE2_SIGNATURE, 4(%esi)
+    jmp *%edi
+
+    halt
 
 .data
 .align 4
