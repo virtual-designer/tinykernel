@@ -2,6 +2,7 @@
 #define KERNEL_E820_H
 
 #include "stdint.h"
+#include "compiler.h"
 
 struct e820_entry
 {

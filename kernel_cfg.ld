@@ -4,7 +4,8 @@ OUTPUT_ARCH(i386)
 
 SECTIONS
 {
-    . = 0x100000;
+    __KERNEL_LOAD_ADDR_START_SYM = 0x100000;
+    . = __KERNEL_LOAD_ADDR_START_SYM;
 
     .text : ALIGN(4)
     {
@@ -27,6 +28,9 @@ SECTIONS
         *(COMMON)
         *(.bss*)
     }
+
+    __KERNEL_LOAD_ADDR_END_SYM = .;
+    __KERNEL_LOAD_RUNTIME_SIZE_SYM = __KERNEL_LOAD_ADDR_END_SYM - __KERNEL_LOAD_ADDR_START_SYM;
 
     /DISCARD/ : { 
         *(.comment) 

@@ -1,6 +1,6 @@
+#include "kprintf.h"
 #include "stddef.h"
 #include "stdint.h"
-#include "kprintf.h"
 #include "utils/utils.h"
 
 static const uint16_t VGA_CRTC_INDEX = 0x3D4;
@@ -70,6 +70,18 @@ stdio_init (void)
     kprintf_init ();
 }
 
+static void
+vga_scroll_down (void)
+{
+    for (size_t r = 1; r < VGA_HEIGHT; r++)
+    {
+        for (size_t c = 0; c < VGA_WIDTH; c++)
+            vga_buffer[(r - 1) * VGA_WIDTH + c] = vga_buffer[r * VGA_WIDTH + c];
+    }
+
+    row--;
+}
+
 static inline void
 vga_write_char (uint8_t c, uint8_t attr)
 {
@@ -93,7 +105,7 @@ vga_write_char (uint8_t c, uint8_t attr)
     }
 
     if (row >= VGA_HEIGHT)
-        row = 0;
+        vga_scroll_down ();
 }
 
 void
@@ -126,6 +138,13 @@ puts_raw (const char *str)
 {
     int ret = puts_raw_internal (str);
     vga_update_cursor ();
+    return ret;
+}
+
+int
+puts_raw_noflush (const char *str)
+{
+    int ret = puts_raw_internal (str);
     return ret;
 }
 

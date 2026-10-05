@@ -1,5 +1,6 @@
 #include "boot.h"
 #include "e820.h"
+#include "mm/mman.h"
 #include "stddef.h"
 #include "stdio/stdio.h"
 #include "utils/debug.h"
@@ -14,6 +15,18 @@ print_boot_info (const struct boot_params *kargs)
     kprintf ("\n");
 }
 
+static void
+mm_init (const struct boot_params *kargs)
+{
+    struct kmman *mm = kmman_init_with_e820_table (kargs->e820_table);
+
+    if (!mm)
+        panic ("Failed to initialize kernel memory manager\n");
+
+    kprintf ("\n");
+    kmman_print (mm);
+}
+
 void
 kmain (const struct boot_params *kargs)
 {
@@ -26,6 +39,7 @@ kmain (const struct boot_params *kargs)
                kargs->signature);
 
     print_boot_info (kargs);
-    e820_init (kargs->e820);
+    e820_init (kargs->e820_table);
+    mm_init (kargs);
     halt ();
 }

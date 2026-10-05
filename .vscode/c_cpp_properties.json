@@ -1,0 +1,30 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**"
+            ],
+            "defines": [],
+            "cStandard": "gnu17",
+            "cppStandard": "gnu++17",
+            "intelliSenseMode": "linux-gcc-x64",
+            "compilerArgs": [
+                "-ffreestanding",
+                "-nostdinc",
+                "-nostdlib",
+                "-m32",
+                "-mno-sse",
+                "-mno-avx",
+                "-mno-avx2",
+                "-fno-pic",
+                "-fno-pie",
+                "-fno-stack-protector",
+                "-I${workspaceFolder}/src",
+                "-I${workspaceFolder}/src/kernel",
+                "-I${workspaceFolder}/src/kernel/include"
+            ]
+        }
+    ],
+    "version": 4
+}

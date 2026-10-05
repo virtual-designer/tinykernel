@@ -4,6 +4,7 @@
 #include "stdint.h"
 #include "stdio/stdio.h"
 #include "utils/debug.h"
+#include "utils/string.h"
 #include "utils/utils.h"
 
 enum kp_state
@@ -29,6 +30,7 @@ enum kp_type
 {
     KP_TYPE_SIGNED_DECIMAL,
     KP_TYPE_UNSIGNED_DECIMAL,
+    KP_TYPE_UNSIGNED_STORAGE_SIZE,
     KP_TYPE_UNSIGNED_HEX,
     KP_TYPE_UNSIGNED_OCT,
     KP_TYPE_UNSIGNED_BIN,
@@ -67,12 +69,12 @@ static size_t int_type_max_bin_digits_lut[__KP_LEN_COUNT];
 void
 kprintf_init (void)
 {
-    __builtin_memcpy (int_type_max_hex_digits_lut, int_type_size_lut,
-                      sizeof int_type_max_hex_digits_lut);
-    __builtin_memcpy (int_type_max_oct_digits_lut, int_type_size_lut,
-                      sizeof int_type_max_oct_digits_lut);
-    __builtin_memcpy (int_type_max_bin_digits_lut, int_type_size_lut,
-                      sizeof int_type_max_bin_digits_lut);
+    memcpy (int_type_max_hex_digits_lut, int_type_size_lut,
+            sizeof int_type_max_hex_digits_lut);
+    memcpy (int_type_max_oct_digits_lut, int_type_size_lut,
+            sizeof int_type_max_oct_digits_lut);
+    memcpy (int_type_max_bin_digits_lut, int_type_size_lut,
+            sizeof int_type_max_bin_digits_lut);
 
     for (int i = 0; i < __KP_LEN_COUNT; i++)
     {
@@ -88,9 +90,27 @@ kprintf_init (void)
     }
 }
 
+static const char *storage_size_units[]
+    = { " B", " KiB", " MiB", " GiB", " TiB", " PiB", " EiB", NULL };
+
+static inline void
+kprintf_format_storage_size (unsigned long long int *out_value,
+                             const char **out_unit)
+{
+    unsigned long long int value = *out_value;
+    int unit_index;
+
+    for (unit_index = 0; value >= 1024 && storage_size_units[unit_index];
+         unit_index++)
+        value /= 1024;
+
+    *out_value = value;
+    *out_unit = storage_size_units[unit_index];
+}
+
 static int
 kprintf_int_decimal (unsigned long long int value, const struct kp_opts *opts,
-                     enum kp_length length, bool is_signed)
+                     enum kp_type type, enum kp_length length, bool is_signed)
 {
     (void) opts;
 
@@ -111,6 +131,11 @@ kprintf_int_decimal (unsigned long long int value, const struct kp_opts *opts,
         value &= size == 8 ? value : ((1ULL << (size << SIZE_C (3))) - 1);
     }
 
+    const char *size_unit = NULL;
+
+    if (type == KP_TYPE_UNSIGNED_STORAGE_SIZE)
+        kprintf_format_storage_size (&value, &size_unit);
+
     char buf[64];
     int buf_len = 0;
 
@@ -128,6 +153,9 @@ kprintf_int_decimal (unsigned long long int value, const struct kp_opts *opts,
 
     while (buf_len--)
         putc_noflush (buf[buf_len]);
+
+    if (size_unit)
+        count += puts_raw_noflush (size_unit);
 
     return count;
 }
@@ -298,10 +326,13 @@ kprintf_int_type (const void *ptr, enum kp_type type, enum kp_length length,
     switch (type)
     {
         case KP_TYPE_SIGNED_DECIMAL:
-            return kprintf_int_decimal (value.llval, opts, length, true);
+            return kprintf_int_decimal (value.llval, opts, type, length, true);
 
         case KP_TYPE_UNSIGNED_DECIMAL:
-            return kprintf_int_decimal (value.llval, opts, length, false);
+            return kprintf_int_decimal (value.llval, opts, type, length, false);
+
+        case KP_TYPE_UNSIGNED_STORAGE_SIZE:
+            return kprintf_int_decimal (value.llval, opts, type, length, false);
 
         case KP_TYPE_UNSIGNED_HEX:
             return kprintf_int_hex (value.llval, opts, length);
@@ -425,6 +456,10 @@ kvprintf (void **argp, const char *format)
 
                     case 'u':
                         type = KP_TYPE_UNSIGNED_DECIMAL;
+                        break;
+
+                    case 'S':
+                        type = KP_TYPE_UNSIGNED_STORAGE_SIZE;
                         break;
 
                     case 'x':

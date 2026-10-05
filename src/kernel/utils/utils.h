@@ -2,6 +2,7 @@
 #define KERNEL_UTILS_H
 
 #include "stdint.h"
+#include "compiler.h"
 
 struct register_state
 {

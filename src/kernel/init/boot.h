@@ -9,10 +9,11 @@
 
 #ifndef __ASM__
     #include "stdint.h"
+    #include "compiler.h"
 
 struct boot_params
 {
-    struct e820_table *e820;
+    struct e820_table *e820_table;
     uint8_t signature;
     uint8_t bios_boot_disk;
 } __attribute__ ((packed));

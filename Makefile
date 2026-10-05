@@ -33,9 +33,11 @@ KERNEL_SOURCES := \
 	src/kernel/init/e820.c \
 	src/kernel/stdio/kprintf.c \
 	src/kernel/stdio/stdio.c \
+	src/kernel/mm/mman.c \
 	src/kernel/math/math.c \
 	src/kernel/utils/utils.s \
 	src/kernel/utils/debug.c \
+	src/kernel/utils/string.c \
 	src/kernel/init/entry32.s
 
 KERNEL_OBJECTS := $(patsubst %.c,%.o,$(patsubst %.S,%.o,$(patsubst %.s,%.o,$(KERNEL_SOURCES))))
