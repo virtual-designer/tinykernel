@@ -4,7 +4,11 @@
 #include "stddef.h"
 #include "stdio/stdio.h"
 #include "utils/debug.h"
+#include "utils/string.h"
 #include "utils/utils.h"
+
+extern char __KERNEL_BSS_START[];
+extern char __KERNEL_BSS_END[];
 
 static void
 print_boot_info (const struct boot_params *kargs)
@@ -30,6 +34,10 @@ mm_init (const struct boot_params *kargs)
 void
 kmain (const struct boot_params *kargs)
 {
+    /* Zero-initialize the .bss section. */
+    memset ((void *) __KERNEL_BSS_START, 0,
+            __KERNEL_BSS_END - __KERNEL_BSS_START);
+
     stdio_init ();
     kprintf ("TinyKernel version 1.0.0 -- Booting\n");
 

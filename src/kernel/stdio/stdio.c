@@ -79,6 +79,12 @@ vga_scroll_down (void)
             vga_buffer[(r - 1) * VGA_WIDTH + c] = vga_buffer[r * VGA_WIDTH + c];
     }
 
+    for (size_t c = 0; c < VGA_WIDTH; c++)
+        vga_buffer[(VGA_HEIGHT - 1) * VGA_WIDTH + c]
+            = ((VT_ATTR_BG_DEFAULT | VT_ATTR_FG_DEFAULT | VT_ATTR_FG_BRIGHT)
+               << 8U)
+              | ' ';
+            
     row--;
 }
 

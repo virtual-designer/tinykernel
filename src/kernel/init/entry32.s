@@ -17,7 +17,7 @@ _start:
     hlt
     jmp 1b
 
-.bss
+.section .stack, "aw", @nobits
 .align 4
 .skip (1024 * 128)
 stack_top:

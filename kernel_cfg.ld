@@ -23,10 +23,17 @@ SECTIONS
         *(.rodata*)
     }
 
+    .stack : ALIGN(4)
+    {
+        *(.stack*)
+    }
+
     .bss : ALIGN(4)
     {
+        __KERNEL_BSS_START = ABSOLUTE(.);
         *(COMMON)
         *(.bss*)
+        __KERNEL_BSS_END = ABSOLUTE(.);
     }
 
     __KERNEL_LOAD_ADDR_END_SYM = .;

@@ -4,6 +4,7 @@
 
 #undef memcpy
 #undef memmove
+#undef memset
 
 void
 memcpy (void *dest, const void *src, size_t len)
@@ -25,4 +26,11 @@ memmove (void *dest, const void *src, size_t len)
         while (len--)
             *((char *) dest++) = *((const char *) src++);
     }
+}
+
+void
+memset (void *dest, int c, size_t len)
+{
+    while (len--)
+        *((char *) dest++) = (char) c;
 }
