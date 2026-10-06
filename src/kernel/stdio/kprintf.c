@@ -35,6 +35,7 @@ enum kp_type
     KP_TYPE_UNSIGNED_OCT,
     KP_TYPE_UNSIGNED_BIN,
     KP_TYPE_UNSIGNED_PTR,
+    KP_TYPE_FLOAT,
     KP_TYPE_CHAR,
     KP_TYPE_STRING,
 };
@@ -53,6 +54,15 @@ struct kp_opts
 
 #define KP_OPTS_DEFAULT ((struct kp_opts){ .pad_zeros = false })
 
+static const size_t float_type_size_lut[] = {
+    [KP_LEN_DEFAULT] = sizeof (double),
+    [KP_LEN_SHORT] = 0,
+    [KP_LEN_LONG] = sizeof (double),
+    [KP_LEN_LONG_LONG] = sizeof (long double),
+    [KP_LEN_SIZE] = 0,
+    [KP_LEN_PTR] = 0,
+};
+
 static const size_t int_type_size_lut[] = {
     [KP_LEN_DEFAULT] = sizeof (int),
     [KP_LEN_SHORT] = sizeof (short int),
@@ -65,6 +75,70 @@ static const size_t int_type_size_lut[] = {
 static size_t int_type_max_hex_digits_lut[__KP_LEN_COUNT];
 static size_t int_type_max_oct_digits_lut[__KP_LEN_COUNT];
 static size_t int_type_max_bin_digits_lut[__KP_LEN_COUNT];
+static size_t int_type_max_dec_digits_lut[__KP_LEN_COUNT];
+
+static inline size_t
+kprintf_count_decimal_digits (uint64_t value)
+{
+    if (value >= 10000000000000000000ULL)
+        return 20;
+
+    if (value >= 1000000000000000000ULL)
+        return 19;
+
+    if (value >= 100000000000000000ULL)
+        return 18;
+
+    if (value >= 10000000000000000ULL)
+        return 17;
+
+    if (value >= 1000000000000000ULL)
+        return 16;
+
+    if (value >= 100000000000000ULL)
+        return 15;
+
+    if (value >= 10000000000000ULL)
+        return 14;
+
+    if (value >= 1000000000000ULL)
+        return 13;
+
+    if (value >= 100000000000ULL)
+        return 12;
+
+    if (value >= 10000000000ULL)
+        return 11;
+
+    if (value >= 1000000000ULL)
+        return 10;
+
+    if (value >= 100000000ULL)
+        return 9;
+
+    if (value >= 10000000ULL)
+        return 8;
+
+    if (value >= 1000000ULL)
+        return 7;
+
+    if (value >= 100000ULL)
+        return 6;
+
+    if (value >= 10000ULL)
+        return 5;
+
+    if (value >= 1000ULL)
+        return 4;
+
+    if (value >= 100ULL)
+        return 3;
+
+    if (value >= 10ULL)
+        return 2;
+
+    return 1;
+}
 
 void
 kprintf_init (void)
@@ -74,6 +148,8 @@ kprintf_init (void)
     memcpy (int_type_max_oct_digits_lut, int_type_size_lut,
             sizeof int_type_max_oct_digits_lut);
     memcpy (int_type_max_bin_digits_lut, int_type_size_lut,
+            sizeof int_type_max_bin_digits_lut);
+    memcpy (int_type_max_dec_digits_lut, int_type_size_lut,
             sizeof int_type_max_bin_digits_lut);
 
     for (int i = 0; i < __KP_LEN_COUNT; i++)
@@ -87,6 +163,12 @@ kprintf_init (void)
 
         if ((int_type_max_oct_digits_lut[i] * 3U) / 8U != old_oct)
             int_type_max_oct_digits_lut[i]++;
+
+        unsigned long long int max
+            = int_type_max_bin_digits_lut[i] == 64
+                  ? ~(0ULL)
+                  : ~(1ULL << int_type_max_bin_digits_lut[i]);
+        int_type_max_dec_digits_lut[i] = kprintf_count_decimal_digits (max);
     }
 }
 
@@ -109,11 +191,14 @@ kprintf_format_storage_size (unsigned long long int *out_value,
 }
 
 static int
-kprintf_int_decimal (unsigned long long int value, const struct kp_opts *opts,
-                     enum kp_type type, enum kp_length length, bool is_signed)
+kprintf_decimal_internal (unsigned long long int value,
+                          const struct kp_opts *opts, enum kp_type type,
+                          enum kp_length length, bool is_signed,
+                          int decimal_point_pos)
 {
     (void) opts;
 
+    const size_t dec_digits = int_type_max_dec_digits_lut[length];
     const size_t size = int_type_size_lut[length];
     int count = 0;
 
@@ -136,7 +221,15 @@ kprintf_int_decimal (unsigned long long int value, const struct kp_opts *opts,
     if (type == KP_TYPE_UNSIGNED_STORAGE_SIZE)
         kprintf_format_storage_size (&value, &size_unit);
 
-    char buf[64];
+    char buf[65] = { '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
+                     '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
+                     '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
+
+                     '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
+                     '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
+                     '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
+
+                     0 };
     int buf_len = 0;
 
     do
@@ -151,13 +244,40 @@ kprintf_int_decimal (unsigned long long int value, const struct kp_opts *opts,
 
     count += buf_len;
 
+    if (opts->pad_zeros)
+        buf_len = dec_digits < 64 ? dec_digits : 64;
+
+    int i = 0;
+
     while (buf_len--)
+    {
+        if (i == decimal_point_pos)
+        {
+            if (!i)
+            {
+                putc_noflush ('0');
+                count++;
+            }
+
+            putc_noflush ('.');
+            count++;
+        }
+
         putc_noflush (buf[buf_len]);
+        i++;
+    }
 
     if (size_unit)
         count += puts_raw_noflush (size_unit);
 
     return count;
+}
+
+static inline int
+kprintf_int_decimal (unsigned long long int value, const struct kp_opts *opts,
+                     enum kp_type type, enum kp_length length, bool is_signed)
+{
+    return kprintf_decimal_internal (value, opts, type, length, is_signed, -1);
 }
 
 static int
@@ -264,6 +384,61 @@ kprintf_int_bin (unsigned long long int value, const struct kp_opts *opts,
     return count;
 }
 
+static int
+kprintf_float_long_double (long double ldvalue, const struct kp_opts *opts)
+{
+    return 0;
+}
+
+static int
+kprintf_float_double (double dvalue, const struct kp_opts *opts)
+{
+    int count = 0;
+    const int prec = 6;
+    uint64_t bits = 0;
+    memcpy (&bits, &dvalue, sizeof (double));
+    const uint16_t biased_exp = (bits >> 52ULL) & 0x7FF;
+    const uint64_t mantissa = bits & 0xFFFFFFFFFFFFFULL;
+    const int exp = ((int) biased_exp) - 1023;
+
+    bool is_neg = bits >> 63ULL;
+
+    if (is_neg)
+    {
+        dvalue = -dvalue;
+        putc_noflush ('-');
+        count++;
+    }
+
+    if (!biased_exp && !mantissa)
+    {
+        for (int i = 0; i < prec; i++)
+            putc_noflush ('0');
+
+        count += prec;
+    }
+    else if (biased_exp == 0x7ff)
+    {
+        count += puts_raw_noflush (mantissa ? "nan" : "infinity");
+    }
+    else
+    {
+        int digits
+            = dvalue < 1.0
+                  ? 0
+                  : (int) kprintf_count_decimal_digits ((uint64_t) dvalue);
+
+        for (int i = 0; i < prec; i++)
+            dvalue *= 10;
+
+        uint64_t value = (double) dvalue;
+        count += kprintf_decimal_internal (value, opts, KP_TYPE_SIGNED_DECIMAL,
+                                           KP_LEN_LONG_LONG, false, digits);
+    }
+
+    return count;
+}
+
 static inline int
 kprintf_char (char c)
 {
@@ -278,6 +453,41 @@ kprintf_string (const char *str)
 }
 
 static int
+kprintf_float_type (const void *ptr, enum kp_type type, enum kp_length length,
+                    const struct kp_opts *opts, int *inc)
+{
+    (void) type;
+
+    const size_t byte_len = float_type_size_lut[length];
+    int count;
+    double dvalue = 0;
+    long double ldvalue = 0;
+
+    switch (length)
+    {
+        case KP_LEN_DEFAULT:
+        case KP_LEN_LONG:
+            memcpy (&dvalue, ptr, sizeof (double));
+            count = kprintf_float_double (dvalue, opts);
+            break;
+
+        case KP_LEN_LONG_LONG:
+            memcpy (&ldvalue, ptr, sizeof (long double));
+            count = kprintf_float_long_double (ldvalue, opts);
+            break;
+
+        default:
+            return -1;
+    }
+
+    *inc = byte_len < sizeof (void *)
+               ? 1
+               : ((byte_len + sizeof (void *) - 1) / sizeof (void *));
+
+    return count;
+}
+
+static int
 kprintf_int_type (const void *ptr, enum kp_type type, enum kp_length length,
                   const struct kp_opts *opts, int *inc)
 {
@@ -288,7 +498,8 @@ kprintf_int_type (const void *ptr, enum kp_type type, enum kp_length length,
         unsigned int ival;
         unsigned short sval;
         size_t szval;
-    } value = { .llval = 0 };
+    } value = { 0 };
+
     const size_t byte_len = int_type_size_lut[length];
 
     switch (length)
@@ -321,7 +532,9 @@ kprintf_int_type (const void *ptr, enum kp_type type, enum kp_length length,
             return -1;
     }
 
-    *inc = byte_len < 4 ? 1 : (byte_len / sizeof (size_t));
+    *inc = byte_len < sizeof (void *)
+               ? 1
+               : ((byte_len + sizeof (void *) - 1) / sizeof (void *));
 
     switch (type)
     {
@@ -378,13 +591,16 @@ kvprintf (void **argp, const char *format)
     enum kp_type type = -1;
     struct kp_opts opts = KP_OPTS_DEFAULT;
 
-    while (*format)
+    for (;;)
     {
         switch (state)
         {
             case KP_STATE_DEFAULT:
                 switch (*format)
                 {
+                    case 0:
+                        goto kp_state_end;
+
                     case '%':
                         state = KP_STATE_LENGTH;
                         format++;
@@ -478,6 +694,10 @@ kvprintf (void **argp, const char *format)
                         type = KP_TYPE_UNSIGNED_PTR;
                         break;
 
+                    case 'f':
+                        type = KP_TYPE_FLOAT;
+                        break;
+
                     case 'c':
                         type = KP_TYPE_CHAR;
                         break;
@@ -509,6 +729,12 @@ kvprintf (void **argp, const char *format)
                             ret = kprintf_string (*(const char **) (argp++));
                             break;
 
+                        case KP_TYPE_FLOAT:
+                            ret = kprintf_float_type (argp, type, length, &opts,
+                                                      &inc);
+                            argp += inc;
+                            break;
+
                         default:
                             ret = kprintf_int_type (argp, type, length, &opts,
                                                     &inc);
@@ -536,6 +762,7 @@ kvprintf (void **argp, const char *format)
                 goto end;
         }
     }
+kp_state_end:
 
     if (state != KP_STATE_DEFAULT)
         count = -KP_ERR_UNEXPECTED_END;

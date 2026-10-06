@@ -3,6 +3,10 @@
 
 #include "stdint.h"
 
-uint64_t ullpow(uint64_t base, uint64_t exp);
+extern const double INFINITY;
+
+uint64_t ullpow (uint64_t base, uint64_t exp);
+double floor (double value);
+double ceil (double value);
 
 #endif /* KERNEL_MATH_H */

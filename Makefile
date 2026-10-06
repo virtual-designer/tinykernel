@@ -10,7 +10,7 @@ QEMU := qemu-system-x86_64
 ASFLAGS := --32
 LDFLAGS :=
 CPPFLAGS := -I$(shell pwd)/src -I$(shell pwd)/src/kernel -I$(shell pwd)/src/kernel/include
-CFLAGS := -ffreestanding -nostdinc -nostdlib -m32 -mno-sse -mno-avx -mno-avx2 -fno-pic -fno-pie -fno-stack-protector
+CFLAGS := -ffreestanding -nostdinc -nostdlib -m32 -mfpmath=sse -msse2 -mno-avx -mno-avx2 -fno-pic -fno-pie -fno-stack-protector
 CCASFLAGS := $(CFLAGS) -D__ASM__
 
 IMG := /tmp/disk.img
@@ -34,7 +34,9 @@ KERNEL_SOURCES := \
 	src/kernel/stdio/kprintf.c \
 	src/kernel/stdio/stdio.c \
 	src/kernel/mm/mman.c \
+	src/kernel/fpu/fpu.s \
 	src/kernel/math/math.c \
+	src/kernel/math/consts.s \
 	src/kernel/utils/utils.s \
 	src/kernel/utils/debug.c \
 	src/kernel/utils/string.c \
