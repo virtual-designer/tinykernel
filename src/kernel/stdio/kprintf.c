@@ -23,6 +23,7 @@ enum kp_length
     KP_LEN_LONG_LONG,
     KP_LEN_SIZE,
     KP_LEN_PTR,
+    KP_LEN_LONG_DOUBLE,
     __KP_LEN_COUNT
 };
 
@@ -58,19 +59,20 @@ static const size_t float_type_size_lut[] = {
     [KP_LEN_DEFAULT] = sizeof (double),
     [KP_LEN_SHORT] = 0,
     [KP_LEN_LONG] = sizeof (double),
-    [KP_LEN_LONG_LONG] = sizeof (long double),
+    [KP_LEN_LONG_LONG] = 0,
+    [KP_LEN_LONG_DOUBLE] = sizeof (long double),
     [KP_LEN_SIZE] = 0,
     [KP_LEN_PTR] = 0,
 };
 
-static const size_t int_type_size_lut[] = {
-    [KP_LEN_DEFAULT] = sizeof (int),
-    [KP_LEN_SHORT] = sizeof (short int),
-    [KP_LEN_LONG] = sizeof (long int),
-    [KP_LEN_LONG_LONG] = sizeof (long long int),
-    [KP_LEN_SIZE] = sizeof (size_t),
-    [KP_LEN_PTR] = sizeof (size_t),
-};
+static const size_t int_type_size_lut[]
+    = { [KP_LEN_DEFAULT] = sizeof (int),
+        [KP_LEN_SHORT] = sizeof (short int),
+        [KP_LEN_LONG] = sizeof (long int),
+        [KP_LEN_LONG_LONG] = sizeof (long long int),
+        [KP_LEN_SIZE] = sizeof (size_t),
+        [KP_LEN_PTR] = sizeof (size_t),
+        [KP_LEN_LONG_DOUBLE] = 0 };
 
 static size_t int_type_max_hex_digits_lut[__KP_LEN_COUNT];
 static size_t int_type_max_oct_digits_lut[__KP_LEN_COUNT];
@@ -387,7 +389,59 @@ kprintf_int_bin (unsigned long long int value, const struct kp_opts *opts,
 static int
 kprintf_float_long_double (long double ldvalue, const struct kp_opts *opts)
 {
-    return 0;
+    int count = 0;
+    const int prec = 10;
+    uint64_t mantissa;
+    uint16_t sign_exp;
+
+    memcpy (&mantissa, &ldvalue, sizeof (mantissa));
+    memcpy (&sign_exp, ((char *) &ldvalue) + 8, sizeof (sign_exp));
+
+    const bool int_bit = mantissa >> 62ULL;
+    const uint16_t biased_exp = sign_exp & 0x7FFF;
+
+    if (biased_exp == 0x7FFF && int_bit && mantissa)
+    {
+        count += puts_raw_noflush ("nan");
+        return count;
+    }
+
+    bool is_neg = sign_exp >> 15;
+
+    if (is_neg)
+    {
+        ldvalue = -ldvalue;
+        putc_noflush ('-');
+        count++;
+    }
+
+    if (!biased_exp && !mantissa)
+    {
+        for (int i = 0; i < prec; i++)
+            putc_noflush ('0');
+
+        count += prec;
+    }
+    else if (biased_exp == 0x7FFF && int_bit && !mantissa)
+    {
+        count += puts_raw_noflush ("infinity");
+    }
+    else
+    {
+        int digits
+            = ldvalue < 1.0
+                  ? 0
+                  : (int) kprintf_count_decimal_digits ((uint64_t) ldvalue);
+
+        for (int i = 0; i < prec; i++)
+            ldvalue *= 10;
+
+        uint64_t value = (uint64_t) ldvalue;
+        count += kprintf_decimal_internal (value, opts, KP_TYPE_SIGNED_DECIMAL,
+                                           KP_LEN_LONG_LONG, false, digits);
+    }
+
+    return count;
 }
 
 static int
@@ -399,8 +453,7 @@ kprintf_float_double (double dvalue, const struct kp_opts *opts)
     memcpy (&bits, &dvalue, sizeof (double));
     const uint16_t biased_exp = (bits >> 52ULL) & 0x7FF;
     const uint64_t mantissa = bits & 0xFFFFFFFFFFFFFULL;
-    const int exp = ((int) biased_exp) - 1023;
-
+ 
     bool is_neg = bits >> 63ULL;
 
     if (is_neg)
@@ -471,7 +524,7 @@ kprintf_float_type (const void *ptr, enum kp_type type, enum kp_length length,
             count = kprintf_float_double (dvalue, opts);
             break;
 
-        case KP_LEN_LONG_LONG:
+        case KP_LEN_LONG_DOUBLE:
             memcpy (&ldvalue, ptr, sizeof (long double));
             count = kprintf_float_long_double (ldvalue, opts);
             break;
@@ -643,6 +696,11 @@ kvprintf (void **argp, const char *format)
                         }
 
                         length = KP_LEN_LONG;
+                        break;
+
+                    case 'L':
+                        format++;
+                        length = KP_LEN_LONG_DOUBLE;
                         break;
 
                     case 'h':
