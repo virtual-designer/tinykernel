@@ -11,8 +11,8 @@
 
 RM16_STACK_TOP = 0x5000
 
-.globl _start_stage2
-_start_stage2:
+.globl _start
+_start:
     # Read first argument (struct boot_params *)
     movl 4(%esp), %ebx
     movl %ebx, boot_params_ptr
@@ -270,18 +270,42 @@ stage2_main:
 2:
     halt
 3:
+    call enter_long_mode
+    halt
+
+jump_to_kernel:
     movl $KERNEL_LOAD_ADDR, %edi
     movl boot_params_ptr, %esi
     movb $KLOADER_STAGE2_SIGNATURE, 4(%esi)
     jmp *%edi
 
+CPUID_EXTENSIONS = 0x80000000
+CPUID_EXTENDED_FEATURES = 0x80000001
+CPUID_EDX_EXT_FEAT_LM = 1 << 29
+
+.type enter_long_mode, @function
+enter_long_mode:
+    # Check whether cpuid supports extended features
+    movl $CPUID_EXTENSIONS, %eax
+    cpuid
+    cmpl $CPUID_EXTENDED_FEATURES, %eax
+    jb 2f
+
+    # Check long mode support
+    movl $CPUID_EXTENDED_FEATURES, %eax
+    cpuid
+    testl $CPUID_EDX_EXT_FEAT_LM, %edx
+    jz 2f
+    
+1:
+    halt
+2:
+    movw $0x604, %dx
+    movw $0x2000, %ax
+    outw %ax, %dx
     halt
 
 .data
-.align 4
-kernel_exec_err_msg:
-    .string "kexec: general error\r\n"
-
 .align 8
 gdt:
     .quad 0x00

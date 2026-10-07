@@ -4,7 +4,7 @@ OUTPUT_ARCH(i386)
 
 SECTIONS
 {
-    . = 0x1000;
+    . = 0x3000;
 
     .text : ALIGN(2)
     {

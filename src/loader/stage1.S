@@ -3,7 +3,7 @@
 .extern putc
 .extern puts
 
-STAGE2_LOAD_ADDR = 0x1000
+STAGE2_LOAD_ADDR = 0x3000
 
 .code16
 .section .text.boot, "ax", @progbits
