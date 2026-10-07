@@ -1,4 +1,5 @@
 #include "kprintf.h"
+#include "stdarg.h"
 #include "stdbool.h"
 #include "stddef.h"
 #include "stdint.h"
@@ -166,10 +167,11 @@ kprintf_init (void)
         if ((int_type_max_oct_digits_lut[i] * 3U) / 8U != old_oct)
             int_type_max_oct_digits_lut[i]++;
 
-        unsigned long long int max
+        const uint64_t max
             = int_type_max_bin_digits_lut[i] == 64
-                  ? ~(0ULL)
-                  : ~(1ULL << int_type_max_bin_digits_lut[i]);
+                  ? UINT64_MAX
+                  : (UINT64_MAX >> (64 - int_type_max_bin_digits_lut[i]));
+
         int_type_max_dec_digits_lut[i] = kprintf_count_decimal_digits (max);
     }
 }
@@ -453,7 +455,7 @@ kprintf_float_double (double dvalue, const struct kp_opts *opts)
     memcpy (&bits, &dvalue, sizeof (double));
     const uint16_t biased_exp = (bits >> 52ULL) & 0x7FF;
     const uint64_t mantissa = bits & 0xFFFFFFFFFFFFFULL;
- 
+
     bool is_neg = bits >> 63ULL;
 
     if (is_neg)
@@ -482,7 +484,7 @@ kprintf_float_double (double dvalue, const struct kp_opts *opts)
                   : (int) kprintf_count_decimal_digits ((uint64_t) dvalue);
 
         for (int i = 0; i < prec; i++)
-            dvalue *= 10;
+            dvalue *= 10.0;
 
         uint64_t value = (double) dvalue;
         count += kprintf_decimal_internal (value, opts, KP_TYPE_SIGNED_DECIMAL,
@@ -493,7 +495,7 @@ kprintf_float_double (double dvalue, const struct kp_opts *opts)
 }
 
 static inline int
-kprintf_char (char c)
+kprintf_char (int c)
 {
     putc_noflush (c);
     return 1;
@@ -506,12 +508,11 @@ kprintf_string (const char *str)
 }
 
 static int
-kprintf_float_type (const void *ptr, enum kp_type type, enum kp_length length,
-                    const struct kp_opts *opts, int *inc)
+kprintf_float_type (va_list args, enum kp_type type, enum kp_length length,
+                    const struct kp_opts *opts)
 {
     (void) type;
 
-    const size_t byte_len = float_type_size_lut[length];
     int count;
     double dvalue = 0;
     long double ldvalue = 0;
@@ -520,12 +521,12 @@ kprintf_float_type (const void *ptr, enum kp_type type, enum kp_length length,
     {
         case KP_LEN_DEFAULT:
         case KP_LEN_LONG:
-            memcpy (&dvalue, ptr, sizeof (double));
+            dvalue = va_arg (args, double);
             count = kprintf_float_double (dvalue, opts);
             break;
 
         case KP_LEN_LONG_DOUBLE:
-            memcpy (&ldvalue, ptr, sizeof (long double));
+            ldvalue = va_arg (args, long double);
             count = kprintf_float_long_double (ldvalue, opts);
             break;
 
@@ -533,16 +534,12 @@ kprintf_float_type (const void *ptr, enum kp_type type, enum kp_length length,
             return -1;
     }
 
-    *inc = byte_len < sizeof (void *)
-               ? 1
-               : ((byte_len + sizeof (void *) - 1) / sizeof (void *));
-
     return count;
 }
 
 static int
-kprintf_int_type (const void *ptr, enum kp_type type, enum kp_length length,
-                  const struct kp_opts *opts, int *inc)
+kprintf_int_type (va_list args, enum kp_type type, enum kp_length length,
+                  const struct kp_opts *opts)
 {
     union
     {
@@ -553,41 +550,35 @@ kprintf_int_type (const void *ptr, enum kp_type type, enum kp_length length,
         size_t szval;
     } value = { 0 };
 
-    const size_t byte_len = int_type_size_lut[length];
-
     switch (length)
     {
         case KP_LEN_DEFAULT:
-            value.ival = *(unsigned int *) ptr;
+            value.ival = va_arg (args, unsigned int);
             break;
 
         case KP_LEN_SHORT:
-            value.sval = *(unsigned short int *) ptr;
+            value.sval = (unsigned short int) va_arg (args, unsigned int);
             break;
 
         case KP_LEN_LONG:
-            value.lval = *(unsigned long int *) ptr;
+            value.lval = va_arg (args, unsigned long int);
             break;
 
         case KP_LEN_LONG_LONG:
-            value.llval = *(unsigned long long int *) ptr;
+            value.llval = va_arg (args, unsigned long long int);
             break;
 
         case KP_LEN_SIZE:
-            value.szval = *(size_t *) ptr;
+            value.szval = va_arg (args, size_t);
             break;
 
         case KP_LEN_PTR:
-            value.llval = (size_t) *(void **) ptr;
+            value.llval = (size_t) va_arg (args, void *);
             break;
 
         default:
             return -1;
     }
-
-    *inc = byte_len < sizeof (void *)
-               ? 1
-               : ((byte_len + sizeof (void *) - 1) / sizeof (void *));
 
     switch (type)
     {
@@ -621,22 +612,27 @@ kprintf_int_type (const void *ptr, enum kp_type type, enum kp_length length,
 void
 panic_message_kprintf (const char *format, ...)
 {
-    void **argp = ((void **) &format) + 1;
+    va_list args;
+    va_start (args, format);
     puts ("***************************************");
     puts ("********* KERNEL PANIC: HALT **********");
     puts ("***************************************");
-    kvprintf (argp, format);
+    kvprintf (args, format);
+    va_end (args);
 }
 
 int
 kprintf (const char *format, ...)
 {
-    void **argp = ((void **) &format) + 1;
-    return kvprintf (argp, format);
+    va_list args;
+    va_start (args, format);
+    int count = kvprintf (args, format);
+    va_end (args);
+    return count;
 }
 
 int
-kvprintf (void **argp, const char *format)
+kvprintf (va_list args, const char *format)
 {
     int count = 0;
     enum kp_state state = KP_STATE_DEFAULT;
@@ -775,28 +771,25 @@ kvprintf (void **argp, const char *format)
 
             case KP_STATE_PRINT:
                 {
-                    int ret, inc = 0;
+                    int ret;
 
                     switch (type)
                     {
                         case KP_TYPE_CHAR:
-                            ret = kprintf_char (*(const char *) (argp++));
+                            ret = kprintf_char (va_arg (args, int));
                             break;
 
                         case KP_TYPE_STRING:
-                            ret = kprintf_string (*(const char **) (argp++));
+                            ret = kprintf_string (va_arg (args, const char *));
                             break;
 
                         case KP_TYPE_FLOAT:
-                            ret = kprintf_float_type (argp, type, length, &opts,
-                                                      &inc);
-                            argp += inc;
+                            ret = kprintf_float_type (args, type, length,
+                                                      &opts);
                             break;
 
                         default:
-                            ret = kprintf_int_type (argp, type, length, &opts,
-                                                    &inc);
-                            argp += inc;
+                            ret = kprintf_int_type (args, type, length, &opts);
                             break;
                     }
 

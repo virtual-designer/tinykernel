@@ -1,9 +1,9 @@
 #include "boot.h"
 #include "e820.h"
 #include "fpu/fpu.h"
+#include "math/math.h"
 #include "mm/mman.h"
 #include "stddef.h"
-#include "math/math.h"
 #include "stdio/stdio.h"
 #include "utils/debug.h"
 #include "utils/string.h"
@@ -18,6 +18,7 @@ print_boot_info (const struct boot_params *kargs)
     kprintf ("\nBoot Information:\n");
     kprintf ("  BIOS Boot Disk:   0x%x\n", kargs->bios_boot_disk);
     kprintf ("  Loader signature: 0x%x\n", kargs->signature);
+    kprintf ("  E820 Table:       %p\n", (void *) kargs->e820_table);
     kprintf ("\n");
 }
 

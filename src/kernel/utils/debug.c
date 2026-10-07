@@ -8,15 +8,15 @@ void
 print_registers (const struct register_state *rstate)
 {
     kprintf ("******* Begin register state *******\n");
-    kprintf ("|     eax=0x%0x" PRINT_REGISTER_GAP "ecx=0x%0x" PRINT_REGISTER_GAP
-             "edx=0x%0x" PRINT_REGISTER_GAP "ebx=0x%0x\n",
-             rstate->eax, rstate->ecx, rstate->edx, rstate->ebx);
-    kprintf ("|     ebp=0x%0x" PRINT_REGISTER_GAP "esp=0x%0x\n", rstate->ebp,
-             rstate->esp);
-    kprintf ("|     esi=0x%0x" PRINT_REGISTER_GAP "edi=0x%0x\n", rstate->esi,
-             rstate->edi);
-    kprintf ("|     eip=0x%0x" PRINT_REGISTER_GAP "eflags=0x%0x\n", rstate->eip,
-             rstate->eflags);
+    kprintf ("|     rax=0x%0x" PRINT_REGISTER_GAP "rcx=0x%0x" PRINT_REGISTER_GAP
+             "rdx=0x%0x" PRINT_REGISTER_GAP "rbx=0x%0x\n",
+             rstate->rax, rstate->rcx, rstate->rdx, rstate->rbx);
+    kprintf ("|     rbp=0x%0x" PRINT_REGISTER_GAP "rsp=0x%0x\n", rstate->rbp,
+             rstate->rsp);
+    kprintf ("|     rsi=0x%0x" PRINT_REGISTER_GAP "rdi=0x%0x\n", rstate->rsi,
+             rstate->rdi);
+    kprintf ("|     rip=0x%0x" PRINT_REGISTER_GAP "rflags=0x%0x\n", rstate->rip,
+             rstate->rflags);
     kprintf ("|     ds=0x%0hx" PRINT_REGISTER_GAP "es=0x%0hx" PRINT_REGISTER_GAP
              "      fs=0x%0hx" PRINT_REGISTER_GAP "gs=0x%0hx\n",
              rstate->ds, rstate->es, rstate->fs, rstate->gs);

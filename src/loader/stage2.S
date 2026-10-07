@@ -16,7 +16,7 @@ _start:
     # Read first argument (struct boot_params *)
     movl 4(%esp), %ebx
     movl %ebx, boot_params_ptr
-    movb 5(%ebx), %dl
+    movb 9(%ebx), %dl
     movb %dl, boot_drive_id
     movl $RM16_STACK_TOP, %esp
 
@@ -44,10 +44,82 @@ _start:
     movw %ax, %fs
     movw %ax, %gs
     movw %ax, %ss
-    movl $stack_top, %esp
-    
-    sti
+    movl $0x500000, %esp
+
     call stage2_main
+
+.align 8
+gdt:
+    .quad 0x00
+    
+    .word 0xffff
+    .word 0x0000
+    .byte 0x00
+    .byte 0b10011010
+    .byte 0b11001111
+    .byte 0x00
+    
+    .word 0xffff
+    .word 0x0000
+    .byte 0x00
+    .byte 0b10010010
+    .byte 0b11001111
+    .byte 0x00
+gdt_end:
+
+.align 8
+gdtr:
+    .word (gdt_end - gdt - 1)
+    .long gdt
+
+.align 8
+gdt16:
+    .quad 0x00
+
+    .word 0xffff
+    .word 0x0000
+    .byte 0x00
+    .byte 0b10011010
+    .byte 0b00000000
+    .byte 0x00
+    
+    .word 0xffff
+    .word 0x0000
+    .byte 0x00
+    .byte 0b10010010
+    .byte 0b00000000
+    .byte 0x00
+gdt16_end:
+
+.align 8
+gdtr16:
+    .word (gdt16_end - gdt16 - 1)
+    .long gdt16
+
+.code64
+.align 8
+gdt64:
+    .quad 0x00
+
+    .word 0xffff
+    .word 0x0000
+    .byte 0x00
+    .byte 0b10011010
+    .byte 0b10101111
+    .byte 0x00
+
+    .word 0xffff
+    .word 0x0000
+    .byte 0x00
+    .byte 0b10010010
+    .byte 0b11001111
+    .byte 0x00
+gdt64_end:
+
+.align 8
+gdtr64:
+    .word (gdt64_end - gdt64 - 1)
+    .quad gdt64
 
 .code16
 boot_params_ptr:
@@ -127,7 +199,7 @@ nmi_disable:
 
 KERNEL_LOAD_ADDR = 0x100000
 KERNEL_LOAD_SECTORS = 0x20
-KERNEL_LOAD_LBA_START = 0x08
+KERNEL_LOAD_LBA_START = 0x20
 
 .align 4
 read_kernel_dpkt:
@@ -160,7 +232,7 @@ read_kernel_from_disk:
 
 1:
     leaw read_kernel_errmsg, %si
-    call puts
+    call puts16
     movw $-1, %bx
     ret
 
@@ -201,10 +273,10 @@ call_rm16:
     movw %ax, %gs
     movw %ax, %ss
     movl $RM16_STACK_TOP, %esp
-
+    
 3:
     call *%dx
-
+    
 4:
     leal gdtr, %eax
     lgdtl (%eax)
@@ -273,18 +345,16 @@ stage2_main:
     call enter_long_mode
     halt
 
-jump_to_kernel:
-    movl $KERNEL_LOAD_ADDR, %edi
-    movl boot_params_ptr, %esi
-    movb $KLOADER_STAGE2_SIGNATURE, 4(%esi)
-    jmp *%edi
-
 CPUID_EXTENSIONS = 0x80000000
 CPUID_EXTENDED_FEATURES = 0x80000001
 CPUID_EDX_EXT_FEAT_LM = 1 << 29
+MSR_EFER = 0xC0000080
+MSR_EFER_LM_ENABLE = 1 << 8
 
 .type enter_long_mode, @function
 enter_long_mode:
+    cli
+
     # Check whether cpuid supports extended features
     movl $CPUID_EXTENSIONS, %eax
     cpuid
@@ -298,64 +368,202 @@ enter_long_mode:
     jz 2f
     
 1:
+    leal long_mode_supported_str, %esi
+    call puts
+
+    # Build page tables
+    call stage2_build_page_tables
+
+    # Enable PAE
+    movl %cr4, %eax
+    orl $0x20, %eax
+    movl %eax, %cr4
+    
+    # Load PML4
+    leal stage2_pml4, %edi
+    movl %edi, %cr3
+
+    # Turn on long mode bit
+    movl $MSR_EFER, %ecx
+    rdmsr
+    orl $MSR_EFER_LM_ENABLE, %eax
+    wrmsr
+
+    # Enable CR0.PG
+    movl %cr0, %eax
+    orl $(1 << 31), %eax
+    movl %eax, %cr0
+
+    # Load 64-bit GDT
+    leal gdtr64, %eax
+    lgdtl (%eax)
+
+    # Long-jump to 64-bit code
+    ljmpl $0x08, $3f
+
     halt
 2:
+    leal long_mode_not_supported_str, %esi
+    call puts
+    halt
+
+.code64
+3:
+    # Now in long mode
+    movw $0x10, %ax
+    movw %ax, %ds
+    movw %ax, %es
+    movw %ax, %fs
+    movw %ax, %gs
+    movw %ax, %ss
+    
+    jmp jump_to_kernel
+    halt
+
+jump_to_kernel:
+    movq $KERNEL_LOAD_ADDR, %rdi
+    xorq %rsi, %rsi
+    movl boot_params_ptr, %esi
+    movb $KLOADER_STAGE2_SIGNATURE, 8(%rsi)
+    jmp *%rdi
+    halt
+
+.code32
+.type stage2_build_page_tables, @function
+stage2_build_page_tables:
+    # Zero the page table region
+    xorl %edx, %edx
+    movl stage2_page_tables_size, %eax
+    leal stage2_page_tables_begin, %edi
+    xorl %eax, %eax
+    rep stosb
+
+    # Build PML4[0]
+    leal stage2_pml4, %edi
+    leal stage2_pdpt, %esi
+    orl $0x03, %esi
+    movl %esi, (%edi)
+    movl $0, 4(%edi)
+
+    # Build PDPT[0]
+    leal stage2_pdpt, %edi
+    leal stage2_pd, %esi
+    orl $0x03, %esi
+    movl %esi, (%edi)
+    movl $0, 4(%edi)
+
+    # Build PD[0]
+    leal stage2_pd, %edi
+    leal stage2_pt, %esi
+    orl $0x03, %esi
+    movl %esi, (%edi)
+    movl $0, 4(%edi)
+
+    # Build first PT for PD[0]
+    leal stage2_pt, %edi
+    addl $8, %edi
+    movl $1, %ecx
+1:
+    # Multiply by PAGE_SIZE (4096)
+    movl %ecx, %eax
+    shll $12, %eax
+    orl $0x03, %eax
+
+    movl %eax, (%edi)
+    movl $0, 4(%edi)
+    
+    incl %ecx
+    addl $8, %edi
+    cmpl $512, %ecx
+    jb 1b
+
+    # Build PD[1] to PD[7]
+    leal stage2_pd, %edi
+    addl $8, %edi
+    movl $1, %ecx
+2:
+    movl %ecx, %eax
+    shll $21, %eax
+    orl $0x83, %eax
+
+    movl %eax, (%edi)
+    movl $0, 4(%edi)
+
+    incl %ecx
+    addl $8, %edi
+    cmpl $8, %ecx
+    jb 2b
+
+    ret
+
+.type shutdown, @function
+shutdown:
     movw $0x604, %dx
     movw $0x2000, %ax
     outw %ax, %dx
     halt
 
+.type puts_clear, @function
+puts_clear:
+    movb $0x07, %ah
+    movb $' ', %al
+    movl $0xb8000, %edi
+    movl $(80 * 25), %ecx
+1:
+    movw %ax, (%edi)
+    addl $2, %edi
+    loop 1b
+    ret
+
+.type puts, @function
+puts:
+    call puts_clear
+    movl $0xb8000, %edi
+1:
+    lodsb
+    testb %al, %al
+    jz 2f
+    movb $0x07, %ah
+    stosw
+    jmp 1b
+2:
+    ret
+
+.section .pml4, "aw", @nobits
+.balign 4096
+stage2_page_tables_begin:
+stage2_pml4:
+    .skip (512 * 8)
+
+.balign 4096
+stage2_pdpt:
+    .skip (512 * 8)
+
+.balign 4096
+stage2_pd:
+    .skip (512 * 8)
+
+.balign 4096
+stage2_pt:
+    .skip (512 * 8)
+
+stage2_page_tables_end:
+
 .data
 .align 8
-gdt:
-    .quad 0x00
-    
-    .word 0xffff
-    .word 0x0000
-    .byte 0x00
-    .byte 0b10011010
-    .byte 0b11001111
-    .byte 0x00
-    
-    .word 0xffff
-    .word 0x0000
-    .byte 0x00
-    .byte 0b10010010
-    .byte 0b11001111
-    .byte 0x00
-gdt_end:
+long_mode_supported_str:
+    .string "stage2: long mode is supported"
 
 .align 8
-gdtr:
-    .word (gdt_end - gdt - 1)
-    .long gdt
+long_mode_not_supported_str:
+    .string "stage2: error: long mode is not supported; cannot boot"
 
 .align 8
-gdt16:
-    .quad 0x00
-
-    .word 0xffff
-    .word 0x0000
-    .byte 0x00
-    .byte 0b10011010
-    .byte 0b00000000
-    .byte 0x00
-    
-    .word 0xffff
-    .word 0x0000
-    .byte 0x00
-    .byte 0b10010010
-    .byte 0b00000000
-    .byte 0x00
-gdt16_end:
-
-.align 8
-gdtr16:
-    .word (gdt16_end - gdt16 - 1)
-    .long gdt16
+stage2_page_tables_size:
+    .long (stage2_page_tables_end - stage2_page_tables_begin)
 
 .bss
-.align 4
-.skip (8 * 1024)
+.code32
+.align 8
+.skip (2 * 1024)
 stack_top:
-

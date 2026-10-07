@@ -1,0 +1,33 @@
+# bochsrc
+
+megs: 2048
+
+cpu: count=1, ips=1000000
+
+romimage: file=/usr/share/bochs/BIOS-bochs-latest
+#romimage: file=/usr/share/bochs/bios.bin-1.16.0
+
+vgaromimage: file=/usr/share/bochs/VGABIOS-lgpl-latest.bin
+
+boot: disk
+ata0-master: type=disk, path=/tmp/disk.img, mode=flat, cylinders=2, heads=2, spt=32
+
+# Start execution paused in the debugger
+magic_break: enabled=1
+
+# Log CPU / paging information
+log: bochs.log
+
+panic: action=ask
+error: action=report
+info: action=report
+debug: action=ignore
+
+# Enable Bochs debugger
+display_library: x
+
+# Optional: don't use mouse
+mouse: enabled=0
+
+# Keyboard
+keyboard: type=mf

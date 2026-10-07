@@ -1,9 +1,6 @@
 #include <kernel/init/boot.h>
 
-.extern putc
-.extern puts
-
-STAGE2_LOAD_ADDR = 0x3000
+STAGE2_LOAD_ADDR = 0x1000
 
 .code16
 .section .text.boot, "ax", @progbits
@@ -21,10 +18,11 @@ _start:
     movb %dl, boot_drive_id
     
     call probe_mem
-    leal e820_mem_table_ptr, %edi
+    movl $E8120_MEM_TABLE_PTR, %edi
     movl %eax, (%edi)
-    movw %bp, 4(%edi)
-    movw %si, 6(%edi)
+    movl $0,  4(%edi)
+    movw %bp, 8(%edi)
+    movw %si, 10(%edi)
     call stage2_exec
 
 .type stage2_exec, @function
@@ -41,7 +39,7 @@ stage2_exec:
     jz 2f
 
     leaw read_stage2_bios_extended_msg, %si
-    call puts
+    call puts16
     
     leaw read_stage2_dpkt, %si
     movl $STAGE2_LOAD_ADDR, %eax
@@ -62,24 +60,24 @@ stage2_exec:
     pushw %ax
     movl %esp, %eax
 
-    leal boot_params, %edi
-    movb $KLOADER_STAGE1_SIGNATURE, 4(%edi)
+    movl $boot_params, %edi
+    movb $KLOADER_STAGE1_SIGNATURE, 8(%edi)
     movb boot_drive_id, %dl
-    movb %dl, 5(%edi)
+    movb %dl, 9(%edi)
     
     pushl %edi
     lcallw *(%eax)
     leaw exec_stage2_errmsg, %si
-    call puts
+    call puts16
     jmp 1f
 
 2:
     leaw read_stage2_read_errmsg, %si
-    call puts
+    call puts16
     jmp 1f
 3:
     leaw read_stage2_read_errmsg, %si
-    call puts
+    call puts16
 1:
     hlt
     jmp 1b
@@ -150,7 +148,7 @@ probe_mem:
     xorl %ebp, %ebp
     xorl %esi, %esi
     lea probe_mem_errmsg, %si
-    call puts
+    call puts16
 1:
     hlt
     jmp 1b
@@ -171,15 +169,12 @@ read_stage2_bios_extended_msg:
 probe_mem_errmsg:
     .string "Memory probe failed\r\n"
 
-.align 2
-e820_mem_table_ptr:
-    .long 0
-    .word 0
-    .word 0
+E8120_MEM_TABLE_PTR = 0x7e00
 
 .align 2
 boot_params:
-    .long e820_mem_table_ptr
+    .long E8120_MEM_TABLE_PTR
+    .long 0
     .byte 0x0
     .byte 0x0
 
@@ -191,6 +186,6 @@ boot_drive_id:
 read_stage2_dpkt:
     .byte 0x10
     .byte 0x00
-    .word 0x06
+    .word 0x20
     .long 0x00000000
     .quad 0x01

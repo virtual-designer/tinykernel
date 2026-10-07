@@ -1,5 +1,29 @@
-.code32
+.code64
 .text
+
+.macro pushaq
+    pushq %rax
+    pushq %rcx
+    pushq %rdx
+    pushq %rbx
+    pushq %rsp
+    addq $(5 * 8), (%rsp)
+    pushq %rbp
+    pushq %rsi
+    pushq %rdi
+.endm
+
+.macro popaq
+    popq %rdi
+    popq %rsi
+    popq %rbp
+    popq %rsp
+    subq $(5 * 8), %rsp
+    popq %rbx
+    popq %rdx
+    popq %rcx
+    popq %rax
+.endm
 
 .globl shutdown
 .type shutdown, @function
@@ -21,59 +45,59 @@ halt:
 .globl outb
 .type outb, @function
 outb:
-    movl 4(%esp), %edx
-    movl 8(%esp), %eax
+    movw %di, %dx
+    movw %si, %ax
     outb %al, %dx
     ret
 
 .globl save_registers
 .type save_registers, @function
 save_registers:
-    pushal
-    movl 36(%esp), %edi
-    leal (%esp), %esi
-    movl $32, %ecx
+    movq %rdi, %rdx
+    pushaq
+    movq %rsp, %rbp
+    addq $64, %rbp
+    movq %rsp, %rsi
+    movq $64, %rcx
 1:
     lodsb
     stosb
     loop 1b
 
-    movl 36(%esp), %edi
+    # %rip
+    movq (%rbp), %rax
+    movq %rax, 64(%rdx)
 
-    # %eip
-    movl 32(%esp), %eax
-    movl %eax, 32(%edi)
-
-    # %eflags
-    pushfl
-    popl %eax
-    movl %eax, 36(%edi)
+    # %rflags
+    pushfq
+    popq %rax
+    movq %rax, 72(%rdx)
 
     # %cs
     movw %cs, %ax
-    movw %ax, 40(%edi)
+    movw %ax, 80(%rdx)
 
     # %ds
     movw %ds, %ax
-    movw %ax, 42(%edi)
+    movw %ax, 82(%rdx)
 
     # %es
     movw %es, %ax
-    movw %ax, 44(%edi)
+    movw %ax, 84(%rdx)
 
     # %fs
     movw %fs, %ax
-    movw %ax, 46(%edi)
+    movw %ax, 86(%rdx)
 
     # %gs
     movw %gs, %ax
-    movw %ax, 48(%edi)
+    movw %ax, 88(%rdx)
 
     # %ss
     movw %ss, %ax
-    movw %ax, 50(%edi)
+    movw %ax, 90(%rdx)
     
-    popal
+    popaq
     ret
 
 .extern panic_message_kprintf
@@ -82,17 +106,19 @@ save_registers:
 .globl panic
 .type panic, @function
 panic:
-    addl $4, %esp
-    pushl panic_reg_state
+    addq $4, %rsp
+    pushaq
+    leaq panic_reg_state, %rdi
     call save_registers
-    popl %ebx
-    movl %esp, %eax
-    movl %eax, 12(%ebx)
+    leaq panic_reg_state, %rbx
+    movq %rsp, %rax
+    movq %rax, 24(%rbx)
+    popaq
     call panic_message_kprintf
-    pushl %ebx
+    leaq panic_reg_state, %rdi
     call print_registers
     call halt
 
 .data
 panic_reg_state:
-    .fill 52
+    .fill 92

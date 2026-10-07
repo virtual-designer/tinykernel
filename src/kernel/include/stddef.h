@@ -2,6 +2,6 @@
 #define KERNEL_STDDEF_H
 
 #define NULL ((void *) 0x00)
-typedef unsigned int size_t;
+typedef unsigned long long int size_t;
 
 #endif /* KERNEL_STDDEF_H */

@@ -1,15 +1,15 @@
-.code32
+.code64
 .section .text.boot, "ax", @progbits
 
 .extern kmain
 
 .globl _start
-_start:    
-    movl $stack_top, %esp
+_start:
+    movq $stack_top, %rsp
 
-    /* %esi holds the (struct boot_params *) pointer,
+    /* %rsi holds the (struct boot_params *) pointer,
        passed by loader2 during handoff. */
-    push %esi
+    movq %rsi, %rdi
     call kmain
 
     cli
@@ -18,6 +18,6 @@ _start:
     jmp 1b
 
 .section .stack, "aw", @nobits
-.align 4
-.skip (1024 * 128)
+.align 16
+.skip (1024 * 1024 * 2)
 stack_top:

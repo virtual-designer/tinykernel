@@ -6,11 +6,11 @@
 
 struct register_state
 {
-    uint32_t edi, esi;
-    uint32_t ebp, esp;
-    uint32_t ebx, edx, ecx, eax;
-    uint32_t eip;
-    uint32_t eflags;
+    uint64_t rdi, rsi;
+    uint64_t rbp, rsp;
+    uint64_t rbx, rdx, rcx, rax;
+    uint64_t rip;
+    uint64_t rflags;
     uint16_t cs, ds, es, fs, gs, ss;
 } __attribute__ ((packed));
 

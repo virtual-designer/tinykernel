@@ -1,34 +1,34 @@
 ENTRY(_start)
 OUTPUT_FORMAT(binary)
-OUTPUT_ARCH(i386)
+OUTPUT_ARCH(i386:x86-64)
 
 SECTIONS
 {
     __KERNEL_LOAD_ADDR_START_SYM = 0x100000;
     . = __KERNEL_LOAD_ADDR_START_SYM;
 
-    .text : ALIGN(4)
+    .text : ALIGN(8)
     {
         *(.text.boot*)
         *(.text*)
     }
 
-    .data : ALIGN(4)
+    .data : ALIGN(8)
     {
         *(.data*)
     }
 
-    .rodata : ALIGN(4)
+    .rodata : ALIGN(8)
     {
         *(.rodata*)
     }
 
-    .stack : ALIGN(4)
+    .stack : ALIGN(8)
     {
         *(.stack*)
     }
 
-    .bss : ALIGN(4)
+    .bss : ALIGN(8)
     {
         __KERNEL_BSS_START = ABSOLUTE(.);
         *(COMMON)

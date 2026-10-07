@@ -5,3 +5,4 @@
 *.a
 /tmp
 *.map
+*.log
