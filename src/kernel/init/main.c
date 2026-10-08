@@ -1,7 +1,7 @@
 #include "boot.h"
 #include "e820.h"
 #include "fpu/fpu.h"
-#include "int/idt.h"
+#include "isr/idt.h"
 #include "math/math.h"
 #include "mm/mman.h"
 #include "stddef.h"

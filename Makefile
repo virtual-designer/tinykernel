@@ -44,6 +44,8 @@ LOADER2_SOURCES := \
 LOADER2_MAIN_OBJECT := $(patsubst %.S,%.o,$(LOADER2_MAIN_SOURCE))
 LOADER2_OBJECTS := $(patsubst %.S,%.o,$(patsubst %.s,%.o,$(LOADER2_SOURCES)))
 
+KERNEL_SOURCES_GENERATED := src/kernel/isr/isr_entry.S
+
 KERNEL_SOURCES := \
 	src/kernel/init/main.c \
 	src/kernel/init/entry64.s \
@@ -57,8 +59,9 @@ KERNEL_SOURCES := \
 	src/kernel/math/math.c \
 	src/kernel/math/consts.s \
 	src/kernel/mm/mman.c \
-	src/kernel/int/idt.c \
-	src/kernel/int/isr.S
+	src/kernel/isr/idt.c \
+	src/kernel/isr/isr.S \
+	$(KERNEL_SOURCES_GENERATED)
 
 KERNEL_OBJECTS := $(patsubst %.c,%.o,$(patsubst %.S,%.o,$(patsubst %.s,%.o,$(KERNEL_SOURCES))))
 
@@ -82,6 +85,9 @@ $(LOADER1): $(LOADER1_OBJECTS)
 $(LOADER2): $(LOADER2_OBJECTS)
 	$(LD) $(LDFLAGS) -Map=src/loader/loader2.map --script loader2_cfg.ld -o $@ $^
 
+src/kernel/isr/isr_entry.S: src/kernel/isr/genisr.sh
+	$(SHELL) src/kernel/isr/genisr.sh > $@
+
 src/kernel/%.o: src/kernel/%.S
 	$(CCAS) $(CPPFLAGS) $(KERNEL_CCASFLAGS) $(CCASFLAGS) -o $@ -c $<
 
@@ -98,6 +104,7 @@ clean:
 	$(RM) $(IMG)
 	$(RM) $(LOADER1) $(LOADER2) $(KERNEL) *.map
 	$(RM) $(LOADER1_OBJECTS) $(LOADER2_OBJECTS) $(KERNEL_OBJECTS)
+	$(RM) $(KERNEL_SOURCES_GENERATED)
 
 run: $(IMG)
 	$(QEMU) -cpu max -machine pc,acpi=on -m 8G -vga std -d int,cpu_reset -no-reboot -drive format=raw,file=$(IMG)

@@ -1,19 +1,19 @@
 #include <kernel/utils/macros.s>
 
-.extern idt_handlers
 .extern idtr
+.extern isr_handler_invoke
 
 .code64
 .text
 
-.globl isr_entry_0x00
-.type isr_entry_0x00, @function
-isr_entry_0x00:
+.globl isr_main
+.type isr_main, @function
+.align 8
+isr_main:
     pushaq
     cld
-    leaq idt_handlers, %rdi
-    movq (%rdi), %rsi
-    callq *%rsi
+    movl %eax, %edi
+    call isr_handler_invoke
     popaq
     iretq
 

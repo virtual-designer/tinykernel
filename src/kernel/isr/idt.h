@@ -1,6 +1,8 @@
 #ifndef KERNEL_IDT_H
 #define KERNEL_IDT_H
 
+#include "stdint.h"
+
 enum idt_entry_type
 {
     IDT_V_DE = 0x00,
@@ -29,6 +31,10 @@ enum idt_entry_type
 typedef void (*idt_handler_t) (void);
 
 void idt_init (void);
-void idt_install_handler (enum idt_entry_type type, idt_handler_t handler);
+void idt_install_handler (enum idt_entry_type type, uint8_t gate_type,
+                          idt_handler_t handler);
+void idt_install_trap_handler (enum idt_entry_type type, idt_handler_t handler);
+
+extern void idt_load (void);
 
 #endif /* KERNEL_IDT_H */
