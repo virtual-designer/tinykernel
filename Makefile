@@ -56,7 +56,9 @@ KERNEL_SOURCES := \
 	src/kernel/utils/debug.c \
 	src/kernel/math/math.c \
 	src/kernel/math/consts.s \
-	src/kernel/mm/mman.c
+	src/kernel/mm/mman.c \
+	src/kernel/int/idt.c \
+	src/kernel/int/isr.S
 
 KERNEL_OBJECTS := $(patsubst %.c,%.o,$(patsubst %.S,%.o,$(patsubst %.s,%.o,$(KERNEL_SOURCES))))
 

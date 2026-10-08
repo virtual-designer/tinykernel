@@ -1,6 +1,7 @@
 #include "boot.h"
 #include "e820.h"
 #include "fpu/fpu.h"
+#include "int/idt.h"
 #include "math/math.h"
 #include "mm/mman.h"
 #include "stddef.h"
@@ -58,5 +59,6 @@ kmain (const struct boot_params *kargs)
     print_boot_info (kargs);
     e820_init (kargs->e820_table);
     mm_init (kargs);
+    idt_init ();
     halt ();
 }
