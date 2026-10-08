@@ -29,8 +29,9 @@ struct idtr
 
 extern const uint64_t isr_cpu_entry_path_list[IDT_VECTOR_COUNT];
 
-struct idt_entry idt[IDT_VECTOR_COUNT] = { 0 };
-struct idtr idtr = { .size = sizeof (idt) - 1, .idt = idt };
+__attribute__ ((align (16))) struct idt_entry idt[IDT_VECTOR_COUNT] = { 0 };
+__attribute__ ((align (16))) struct idtr idtr
+    = { .size = sizeof (idt) - 1, .idt = idt };
 
 idt_handler_t idt_handlers[IDT_VECTOR_COUNT] = { NULL };
 
@@ -38,20 +39,10 @@ void
 idt_install_handler (enum idt_entry_type type, uint8_t gate_type,
                      idt_handler_t handler)
 {
-    kprintf ("Installing interrupt handler for vector 0x%x\n", type);
+    kprintf ("idt: installing interrupt handler for vector 0x%x\n", type);
     idt_handlers[type] = handler;
-
-    uint64_t isr_entry_ptr = isr_cpu_entry_path_list[type];
     struct idt_entry *e = &idt[type];
-
-    e->p = 1;
-    e->segment = 0x08;
-    e->ist = 0;
-    e->dpl = 0;
     e->gate_type = gate_type;
-    e->offset_low = isr_entry_ptr & 0xFFFF;
-    e->offset_mid = (isr_entry_ptr >> 16U) & 0xFFFF;
-    e->offset_high = isr_entry_ptr >> 32U;
 }
 
 void
@@ -63,20 +54,28 @@ idt_install_trap_handler (enum idt_entry_type type, idt_handler_t handler)
 void
 idt_init (void)
 {
-    idt_load ();
-    kprintf ("Interrupt handlers registered\n");
+    for (int i = 0; i < IDT_VECTOR_COUNT; i++)
+    {
+        uint64_t isr_entry_ptr = isr_cpu_entry_path_list[i];
+        struct idt_entry *e = &idt[i];
+
+        e->p = 1;
+        e->segment = 0x08;
+        e->ist = 0;
+        e->dpl = 0;
+        e->gate_type = 0xF;
+        e->offset_low = isr_entry_ptr & 0xFFFF;
+        e->offset_mid = (isr_entry_ptr >> 16U) & 0xFFFF;
+        e->offset_high = isr_entry_ptr >> 32U;
+        idt_handlers[i] = NULL;
+    }
 }
 
 void
 isr_handler_invoke (int type)
 {
-    kprintf ("Invoking handler for interrupt type: 0x%x\n", type);
-
     if (!idt_handlers[type])
-    {
-        kprintf ("No handler set up for interrupt type: 0x%x\n", type);
-        halt ();
-    }
+        panic ("idt: no handler set up for interrupt type: 0x%x\n", type);
 
     idt_handlers[type]();
 }

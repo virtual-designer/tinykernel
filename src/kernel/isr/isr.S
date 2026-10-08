@@ -22,7 +22,12 @@ isr_main:
 idt_load:
     leaq idtr, %rdi
     lidt (%rdi)
+    xorb %al, %al
+    leaq idt_loaded_str, %rdi
+    call kprintf
     ret
 
-str:
-    .string "Handling interrupt"
+.section rodata, "a", @progbits
+idt_loaded_str:
+    .string "isr: interrupt handlers registered\n"
+

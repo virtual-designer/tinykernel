@@ -60,5 +60,6 @@ kmain (const struct boot_params *kargs)
     e820_init (kargs->e820_table);
     mm_init (kargs);
     idt_init ();
+    idt_load ();
     halt ();
 }
