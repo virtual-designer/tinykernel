@@ -1,8 +1,8 @@
 #ifndef KERNEL_UTILS_H
 #define KERNEL_UTILS_H
 
-#include "stdint.h"
 #include "compiler.h"
+#include "stdint.h"
 
 struct register_state
 {
@@ -15,9 +15,12 @@ struct register_state
 } __attribute__ ((packed));
 
 _Noreturn void shutdown (void);
-_Noreturn void __attribute__((format(printf, 1, 2))) panic (const char *format, ...);
+_Noreturn void __attribute__ ((format (printf, 1, 2)))
+panic (const char *format, ...);
 _Noreturn void halt (void);
 void outb (uint16_t port, uint8_t value);
+uint8_t inb (uint16_t port);
 void save_registers (struct register_state *out);
+void cpu_relax (void);
 
 #endif /* KERNEL_UTILS_H */

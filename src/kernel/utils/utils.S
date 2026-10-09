@@ -28,6 +28,18 @@ outb:
     outb %al, %dx
     ret
 
+.globl inb
+.type inb, @function
+inb:
+    movw %di, %dx
+    inb %dx, %al
+    ret
+
+.globl cpu_relax
+cpu_relax:
+    pause
+    ret
+
 .globl save_registers
 .type save_registers, @function
 save_registers:
