@@ -35,57 +35,62 @@ inb:
     inb %dx, %al
     ret
 
-.globl cpu_relax
-cpu_relax:
-    pause
-    ret
-
 .globl save_registers
 .type save_registers, @function
 save_registers:
     movq %rdi, %rdx
     pushaq
     movq %rsp, %rbp
-    addq $64, %rbp
+    addq $REG_SAVE_SIZE, %rbp
     movq %rsp, %rsi
-    movq $64, %rcx
+    movq $REG_SAVE_SIZE, %rcx
 1:
     lodsb
     stosb
     loop 1b
 
+    movq $REG_SAVE_SIZE, %rcx
+
     # %rip
     movq (%rbp), %rax
-    movq %rax, 64(%rdx)
+    movq %rax, (%rdx, %rcx)
+    addq $8, %rcx
 
     # %rflags
     pushfq
     popq %rax
-    movq %rax, 72(%rdx)
+    movq %rax, (%rdx, %rcx)
+    addq $8, %rcx
 
     # %cs
     movw %cs, %ax
-    movw %ax, 80(%rdx)
+    movw %ax, (%rdx, %rcx)
+    addq $2, %rcx
 
     # %ds
     movw %ds, %ax
-    movw %ax, 82(%rdx)
+    movw %ax, (%rdx, %rcx)
+    addq $2, %rcx
 
     # %es
     movw %es, %ax
-    movw %ax, 84(%rdx)
+    movw %ax, (%rdx, %rcx)
+    addq $2, %rcx
 
     # %fs
     movw %fs, %ax
-    movw %ax, 86(%rdx)
+    movw %ax, (%rdx, %rcx)
+    addq $2, %rcx
 
     # %gs
     movw %gs, %ax
-    movw %ax, 88(%rdx)
+    movw %ax, (%rdx, %rcx)
+    addq $2, %rcx
 
     # %ss
     movw %ss, %ax
-    movw %ax, 90(%rdx)
+    movw %ax, (%rdx, %rcx)
+    addq $2, %rcx
     
     popaq
     ret
@@ -111,4 +116,4 @@ panic:
 
 .data
 panic_reg_state:
-    .fill 92
+    .fill REG_SAVE_FULL_SIZE
