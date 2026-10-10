@@ -61,6 +61,7 @@ KERNEL_SOURCES := \
 	src/kernel/mm/mman.c \
 	src/kernel/isr/idt.c \
 	src/kernel/isr/isr.S \
+	src/kernel/acpi/acpi.c \
 	$(KERNEL_SOURCES_GENERATED)
 
 KERNEL_OBJECTS := $(patsubst %.c,%.o,$(patsubst %.S,%.o,$(patsubst %.s,%.o,$(KERNEL_SOURCES))))

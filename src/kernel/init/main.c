@@ -9,6 +9,7 @@
 #include "utils/debug.h"
 #include "utils/string.h"
 #include "utils/utils.h"
+#include "acpi/acpi.h"
 
 extern char __KERNEL_BSS_START[];
 extern char __KERNEL_BSS_END[];
@@ -61,5 +62,6 @@ kmain (const struct boot_params *kargs)
     mm_init (kargs);
     idt_init ();
     idt_load ();
+    acpi_try_get_xsdp (kargs->e820_table);
     halt ();
 }
