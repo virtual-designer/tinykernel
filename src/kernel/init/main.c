@@ -21,7 +21,7 @@ print_boot_info (const struct boot_params *kargs)
     kprintf ("  BIOS Boot Disk:     0x%x\n", kargs->bios_boot_disk);
     kprintf ("  Loader signature:   0x%x\n", kargs->signature);
     kprintf ("  E820 Table:         %p\n", (void *) kargs->e820_table);
-    kprintf ("  BIOS EBDA Address:  %p\n", (void *) (((uint64_t) kargs->bios_ebda_loc) << 4));
+    kprintf ("  BIOS EBDA Address:  %p\n", (void *) (((uint64_t) kargs->bios_ebda_addr) << 4));
     kprintf ("\n");
 }
 
@@ -63,6 +63,6 @@ kmain (const struct boot_params *kargs)
     mm_init (kargs);
     idt_init ();
     idt_load ();
-    acpi_try_get_xsdp (kargs);
+    acpi_try_get_rsdp (kargs);
     halt ();
 }

@@ -5,6 +5,15 @@
 #include "init/e820.h"
 #include "stdint.h"
 
+struct acpi_rsdp
+{
+    char signature[8];
+    uint8_t checksum;
+    char oemid[6];
+    uint8_t revision;
+    uint32_t rsdt_addr;
+};
+
 struct acpi_xsdp
 {
     char signature[8];
@@ -19,6 +28,6 @@ struct acpi_xsdp
     uint8_t reserved[3];
 } __attribute__ ((packed));
 
-struct acpi_xsdp *acpi_try_get_xsdp (const struct boot_params *kargs);
+const struct acpi_rsdp *acpi_try_get_rsdp (const struct boot_params *kargs);
 
 #endif /* KERNEL_ACPI_H */

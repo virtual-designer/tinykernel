@@ -10,7 +10,7 @@ romimage: file=/usr/share/bochs/BIOS-bochs-latest
 vgaromimage: file=/usr/share/bochs/VGABIOS-lgpl-latest.bin
 
 boot: disk
-ata0-master: type=disk, path=/tmp/disk.img, mode=flat, cylinders=2, heads=2, spt=32
+ata0-master: type=disk, path=/tmp/disk.img, mode=flat, cylinders=8, heads=1, spt=32
 
 # Start execution paused in the debugger
 magic_break: enabled=1
