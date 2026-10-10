@@ -6,3 +6,4 @@
 /tmp
 *.map
 *.log
+config.progs.mk
