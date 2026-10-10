@@ -1,11 +1,13 @@
-AS := as
-LD := ld
-CC := gcc
-CCAS := $(CC)
-CCLD := $(CC)
-RM := rm -f
-DD := dd
-QEMU := qemu-system-x86_64
+-include config.progs.mk
+
+AS ?= as
+LD ?= ld
+CC ?= gcc
+CCAS ?= $(CC)
+CCLD ?= $(CC)
+RM ?= rm -f
+DD ?= dd
+QEMU ?= qemu-system-x86_64
 
 ASFLAGS := -g
 LDFLAGS :=

@@ -177,6 +177,7 @@ boot_params:
     .long 0
     .byte 0x0
     .byte 0x0
+    .word 0x0
 
 .align 2
 boot_drive_id:

@@ -29,9 +29,9 @@ struct idtr
 
 extern const uint64_t isr_cpu_entry_path_list[IDT_VECTOR_COUNT];
 
-__attribute__ ((align (16))) struct idt_entry idt[IDT_VECTOR_COUNT] = { 0 };
-__attribute__ ((align (16))) struct idtr idtr
-    = { .size = sizeof (idt) - 1, .idt = idt };
+struct idt_entry idt[IDT_VECTOR_COUNT] __attribute__ ((aligned (16))) = { 0 };
+struct idtr idtr __attribute__ ((aligned (16)))
+= { .size = sizeof (idt) - 1, .idt = idt };
 
 idt_handler_t idt_handlers[IDT_VECTOR_COUNT] = { NULL };
 

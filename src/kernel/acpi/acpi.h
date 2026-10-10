@@ -1,8 +1,9 @@
 #ifndef KERNEL_ACPI_H
 #define KERNEL_ACPI_H
 
-#include "stdint.h"
+#include "init/boot.h"
 #include "init/e820.h"
+#include "stdint.h"
 
 struct acpi_xsdp
 {
@@ -18,6 +19,6 @@ struct acpi_xsdp
     uint8_t reserved[3];
 } __attribute__ ((packed));
 
-struct acpi_xsdp *acpi_try_get_xsdp (const struct e820_table *table);
+struct acpi_xsdp *acpi_try_get_xsdp (const struct boot_params *kargs);
 
 #endif /* KERNEL_ACPI_H */

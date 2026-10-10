@@ -16,6 +16,7 @@ struct boot_params
     struct e820_table *e820_table;
     uint8_t signature;
     uint8_t bios_boot_disk;
+    uint16_t bios_ebda_loc;
 } __attribute__ ((packed));
 #endif /* __ASM__ */
 

@@ -36,14 +36,14 @@ memset (void *dest, int c, size_t len)
         *((char *) dest++) = (char) c;
 }
 
-int
+volatile int
 memcmp (const void *src1, const void *src2, size_t len)
 {
     for (size_t i = 0; i < len; i++)
     {
-        const uint8_t c1 = ((const char *) src1)[i];
-        const uint8_t c2 = ((const char *) src2)[i];
-        const uint8_t diff = c1 - c2;
+        const int c1 = (int) ((const uint8_t *) src1)[i];
+        const int c2 = (int) ((const uint8_t *) src2)[i];
+        const int diff = c1 - c2;
 
         if (diff)
             return diff;

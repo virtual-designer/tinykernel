@@ -13,11 +13,17 @@ RM16_STACK_TOP = 0x5000
 
 .globl _start
 _start:
-    # Read first argument (struct boot_params *)
+    # Read and set members of first argument (struct boot_params *)
     movl 4(%esp), %ebx
     movl %ebx, boot_params_ptr
     movb 9(%ebx), %dl
     movb %dl, boot_drive_id
+
+    # Read BIOS EBDA addesss
+    movl $0x40E, %ecx
+    movw (%ecx), %ax
+    movw %ax, 10(%ebx)
+
     movl $RM16_STACK_TOP, %esp
 
     # Disable NMI and enable A20 gate
