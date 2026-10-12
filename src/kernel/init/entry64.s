@@ -3,8 +3,11 @@
 
 .extern kmain
 
+BOOT_PARAMS_SIZE = 12
+
 .globl _start
 _start:
+    cld
     movq $stack_top, %rsp
 
     /* %rsi holds the (struct boot_params *) pointer,

@@ -1,4 +1,4 @@
-#include "mman.h"
+#include "mm.h"
 #include "init/e820.h"
 #include "stdbool.h"
 #include "stddef.h"
@@ -27,16 +27,16 @@ struct kmem_region
     uint64_t offset;
 };
 
-struct kmman
+struct kmem_manager
 {
     struct kmem_region *regions;
     size_t region_count;
 };
 
-static inline __attribute__ ((returns_nonnull)) struct kmman *
-kmman_init_with_addr (void *addr)
+static inline __attribute__ ((returns_nonnull)) struct kmem_manager *
+kmm_init_with_addr (void *addr)
 {
-    struct kmman *mman = (struct kmman *) addr;
+    struct kmem_manager *mman = (struct kmem_manager *) addr;
 
     mman->region_count = 0;
     mman->regions = NULL;
@@ -45,14 +45,14 @@ kmman_init_with_addr (void *addr)
 }
 
 static inline bool
-kmman_addr_range_overlap (uint64_t addr1_begin, uint64_t addr1_end,
+kmm_addr_range_overlap (uint64_t addr1_begin, uint64_t addr1_end,
                           uint64_t addr2_begin, uint64_t addr2_end)
 {
     return addr1_begin < addr2_end && addr2_begin < addr1_end;
 }
 
-struct kmman *
-kmman_init_with_e820_table (const struct e820_table *table)
+struct kmem_manager *
+kmm_init_with_e820_table (const struct e820_table *table)
 {
     struct kmem_region regions[512];
     size_t region_count = 0;
@@ -70,7 +70,7 @@ kmman_init_with_e820_table (const struct e820_table *table)
         uint64_t length = table->entries[i].length;
         uint64_t end = base + length;
 
-        if (kmman_addr_range_overlap (kbegin, kend, base, end))
+        if (kmm_addr_range_overlap (kbegin, kend, base, end))
         {
             if (kbegin >= base && kend <= end)
             {
@@ -124,7 +124,7 @@ kmman_init_with_e820_table (const struct e820_table *table)
 
     void *mman_ptr = NULL;
     const size_t mman_size
-        = sizeof (struct kmman) + (sizeof (struct kmem_region) * region_count);
+        = sizeof (struct kmem_manager) + (sizeof (struct kmem_region) * region_count);
 
     for (size_t i = 0; i < region_count; i++)
     {
@@ -143,7 +143,7 @@ kmman_init_with_e820_table (const struct e820_table *table)
     if (!mman_ptr)
         return NULL;
 
-    struct kmman *mman = kmman_init_with_addr (mman_ptr);
+    struct kmem_manager *mman = kmm_init_with_addr (mman_ptr);
 
     mman->regions = (struct kmem_region *) (mman + 1);
     mman->region_count = region_count;
@@ -154,7 +154,7 @@ kmman_init_with_e820_table (const struct e820_table *table)
 }
 
 void
-kmman_print (const struct kmman *mman)
+kmm_print (const struct kmem_manager *mman)
 {
     kprintf ("Kernel Memory Manager Information:\n");
     kprintf ("  Allocated at:       %p\n", (void *) mman);

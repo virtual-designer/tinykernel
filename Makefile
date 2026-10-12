@@ -60,7 +60,7 @@ KERNEL_SOURCES := \
 	src/kernel/utils/debug.c \
 	src/kernel/math/math.c \
 	src/kernel/math/consts.s \
-	src/kernel/mm/mman.c \
+	src/kernel/mm/mm.c \
 	src/kernel/isr/idt.c \
 	src/kernel/isr/isr.S \
 	src/kernel/acpi/acpi.c \
