@@ -4,9 +4,9 @@
 #include "stddef.h"
 #include "compiler.h"
 
-void memcpy(void *dest, const void *src, size_t len);
-void memmove(void *dest, const void *src, size_t len);
-void memset(void *dest, int c, size_t len);
+void *memcpy(void *dest, const void *src, size_t len);
+void *memmove(void *dest, const void *src, size_t len);
+void *memset(void *dest, int c, size_t len);
 int memcmp(const void *src1, const void *src2, size_t len);
 
 #if defined(__GNUC__) || defined(__clang__)

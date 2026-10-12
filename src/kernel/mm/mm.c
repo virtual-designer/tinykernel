@@ -6,19 +6,8 @@
 #include "stdio.h"
 #include "utils/string.h"
 #include "utils/utils.h"
-
-#define KMEM_MAP_BASE_MIN 0x100000
-#define KMEM_PAGE_SIZE 4096
-#define KMEM_ALIGN_DOWN(addr) ((addr) & ~(KMEM_PAGE_SIZE - 1))
-#define KMEM_ALIGN_UP(addr) (KMEM_ALIGN_DOWN ((addr) + KMEM_PAGE_SIZE - 1))
-
-extern const uint8_t __KERNEL_LOAD_ADDR_START_SYM;
-extern const uint8_t __KERNEL_LOAD_ADDR_END_SYM;
-extern const uint8_t __KERNEL_LOAD_RUNTIME_SIZE_SYM;
-static const uint8_t *__KERNEL_LOAD_ADDR_START = &__KERNEL_LOAD_ADDR_START_SYM;
-static const uint8_t *__KERNEL_LOAD_ADDR_END = &__KERNEL_LOAD_ADDR_END_SYM;
-static const size_t __KERNEL_LOAD_RUNTIME_SIZE
-    = (size_t) (void *) &__KERNEL_LOAD_RUNTIME_SIZE_SYM;
+#include "regions.h"
+#include "pg.h"
 
 struct kmem_region
 {
@@ -62,8 +51,7 @@ kmm_init_with_e820_table (const struct e820_table *table)
 
     for (size_t i = 0; i < table->entry_count; i++)
     {
-        if (table->entries[i].type != MEM_USABLE
-            || table->entries[i].base < KMEM_MAP_BASE_MIN)
+        if (table->entries[i].type != MEM_USABLE)
             continue;
 
         uint64_t base = table->entries[i].base;
@@ -128,9 +116,9 @@ kmm_init_with_e820_table (const struct e820_table *table)
 
     for (size_t i = 0; i < region_count; i++)
     {
-        regions[i].base = KMEM_ALIGN_UP (regions[i].base);
+        regions[i].base = PG_ALIGN_UP (regions[i].base, PG_PAGE_SIZE);
         regions[i].length
-            = KMEM_ALIGN_DOWN (regions[i].base + regions[i].length)
+            = PG_ALIGN_DOWN (regions[i].base + regions[i].length, PG_PAGE_SIZE)
               - regions[i].base;
 
         if (!mman_ptr && regions[i].length >= mman_size)
@@ -154,28 +142,28 @@ kmm_init_with_e820_table (const struct e820_table *table)
 }
 
 void
-kmm_print (const struct kmem_manager *mman)
+kmm_print (const struct kmem_manager *kmm)
 {
     kprintf ("Kernel Memory Manager Information:\n");
-    kprintf ("  Allocated at:       %p\n", (void *) mman);
-    kprintf ("  Kernel Image Size:  ~%zS\n", __KERNEL_LOAD_RUNTIME_SIZE);
+    kprintf ("  Allocated at:       %p\n", (void *) kmm);
+    kprintf ("  Kernel Image Size:  %zu bytes\n", __KERNEL_LOAD_RUNTIME_SIZE);
     
     size_t total_mapped_size = 0;
     
-    for (size_t i = 0; i < mman->region_count; i++)
-        total_mapped_size += mman->regions[i].length;
+    for (size_t i = 0; i < kmm->region_count; i++)
+        total_mapped_size += kmm->regions[i].length;
     
-    kprintf ("  Mapped memory size: ~%zS\n", total_mapped_size);
-    kprintf ("  Regions:            %zu\n", mman->region_count);
+    kprintf ("  Mapped memory size: %zu bytes\n", total_mapped_size);
+    kprintf ("  Regions:            %zu\n", kmm->region_count);
     kprintf ("  Region Map:\n");
 
-    for (size_t i = 0; i < mman->region_count; i++)
+    for (size_t i = 0; i < kmm->region_count; i++)
     {
         kprintf (
             "    [0x%0llx-0x%0llx]: length %llu bytes, offset %llu bytes\n",
-            mman->regions[i].base,
-            mman->regions[i].base + mman->regions[i].length,
-            mman->regions[i].length, mman->regions[i].offset);
+            kmm->regions[i].base,
+            kmm->regions[i].base + kmm->regions[i].length,
+            kmm->regions[i].length, kmm->regions[i].offset);
     }
 
     kprintf ("\n");

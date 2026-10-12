@@ -56,7 +56,7 @@ struct kp_opts
 
 #define KP_OPTS_DEFAULT ((struct kp_opts){ .pad_zeros = false })
 
-static const size_t float_type_size_lut[] = {
+static const size_t float_type_size_lut[] __attribute__ ((unused)) = {
     [KP_LEN_DEFAULT] = sizeof (double),
     [KP_LEN_SHORT] = 0,
     [KP_LEN_LONG] = sizeof (double),
@@ -66,14 +66,15 @@ static const size_t float_type_size_lut[] = {
     [KP_LEN_PTR] = 0,
 };
 
-static const size_t int_type_size_lut[]
-    = { [KP_LEN_DEFAULT] = sizeof (int),
-        [KP_LEN_SHORT] = sizeof (short int),
-        [KP_LEN_LONG] = sizeof (long int),
-        [KP_LEN_LONG_LONG] = sizeof (long long int),
-        [KP_LEN_SIZE] = sizeof (size_t),
-        [KP_LEN_PTR] = sizeof (size_t),
-        [KP_LEN_LONG_DOUBLE] = 0 };
+static const size_t int_type_size_lut[] = {
+    [KP_LEN_DEFAULT] = sizeof (int),
+    [KP_LEN_SHORT] = sizeof (short int),
+    [KP_LEN_LONG] = sizeof (long int),
+    [KP_LEN_LONG_LONG] = sizeof (long long int),
+    [KP_LEN_SIZE] = sizeof (size_t),
+    [KP_LEN_PTR] = sizeof (size_t),
+    [KP_LEN_LONG_DOUBLE] = 0,
+};
 
 static size_t int_type_max_hex_digits_lut[__KP_LEN_COUNT];
 static size_t int_type_max_oct_digits_lut[__KP_LEN_COUNT];
@@ -212,7 +213,7 @@ kprintf_decimal_internal (unsigned long long int value,
 
         if (flag)
         {
-            putc_noflush ('-');
+            kputc_noflush ('-');
             count++;
             value = ~value + 1;
         }
@@ -234,7 +235,8 @@ kprintf_decimal_internal (unsigned long long int value,
                      '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
 
                      0 };
-    int buf_len = 0;
+
+    size_t buf_len = 0;
 
     do
     {
@@ -259,20 +261,20 @@ kprintf_decimal_internal (unsigned long long int value,
         {
             if (!i)
             {
-                putc_noflush ('0');
+                kputc_noflush ('0');
                 count++;
             }
 
-            putc_noflush ('.');
+            kputc_noflush ('.');
             count++;
         }
 
-        putc_noflush (buf[buf_len]);
+        kputc_noflush (buf[buf_len]);
         i++;
     }
 
     if (size_unit)
-        count += puts_raw_noflush (size_unit);
+        count += kputs_raw_noflush (size_unit);
 
     return count;
 }
@@ -293,7 +295,7 @@ kprintf_int_hex (unsigned long long int value, const struct kp_opts *opts,
     char buf[18] = { '0', '0', '0', '0', '0', '0', '0', '0', '0',
                      '0', '0', '0', '0', '0', '0', '0', '0', 0 };
 
-    int buf_len = 0;
+    size_t buf_len = 0;
 
     do
     {
@@ -311,7 +313,7 @@ kprintf_int_hex (unsigned long long int value, const struct kp_opts *opts,
         buf_len = hex_digits < 16 ? hex_digits : 16;
 
     while (buf_len--)
-        putc_noflush (buf[buf_len]);
+        kputc_noflush (buf[buf_len]);
 
     return count;
 }
@@ -327,7 +329,7 @@ kprintf_int_oct (unsigned long long int value, const struct kp_opts *opts,
                      '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
 
                      0 };
-    int buf_len = 0;
+    size_t buf_len = 0;
 
     do
     {
@@ -345,7 +347,7 @@ kprintf_int_oct (unsigned long long int value, const struct kp_opts *opts,
         buf_len = oct_digits < 22 ? oct_digits : 22;
 
     while (buf_len--)
-        putc_noflush (buf[buf_len]);
+        kputc_noflush (buf[buf_len]);
 
     return count;
 }
@@ -365,7 +367,7 @@ kprintf_int_bin (unsigned long long int value, const struct kp_opts *opts,
                      '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
 
                      0 };
-    int buf_len = 0;
+    size_t buf_len = 0;
 
     do
     {
@@ -383,7 +385,7 @@ kprintf_int_bin (unsigned long long int value, const struct kp_opts *opts,
         buf_len = bin_digits < 64 ? bin_digits : 64;
 
     while (buf_len--)
-        putc_noflush (buf[buf_len]);
+        kputc_noflush (buf[buf_len]);
 
     return count;
 }
@@ -404,7 +406,7 @@ kprintf_float_long_double (long double ldvalue, const struct kp_opts *opts)
 
     if (biased_exp == 0x7FFF && int_bit && mantissa)
     {
-        count += puts_raw_noflush ("nan");
+        count += kputs_raw_noflush ("nan");
         return count;
     }
 
@@ -413,20 +415,20 @@ kprintf_float_long_double (long double ldvalue, const struct kp_opts *opts)
     if (is_neg)
     {
         ldvalue = -ldvalue;
-        putc_noflush ('-');
+        kputc_noflush ('-');
         count++;
     }
 
     if (!biased_exp && !mantissa)
     {
         for (int i = 0; i < prec; i++)
-            putc_noflush ('0');
+            kputc_noflush ('0');
 
         count += prec;
     }
     else if (biased_exp == 0x7FFF && int_bit && !mantissa)
     {
-        count += puts_raw_noflush ("infinity");
+        count += kputs_raw_noflush ("infinity");
     }
     else
     {
@@ -461,20 +463,20 @@ kprintf_float_double (double dvalue, const struct kp_opts *opts)
     if (is_neg)
     {
         dvalue = -dvalue;
-        putc_noflush ('-');
+        kputc_noflush ('-');
         count++;
     }
 
     if (!biased_exp && !mantissa)
     {
         for (int i = 0; i < prec; i++)
-            putc_noflush ('0');
+            kputc_noflush ('0');
 
         count += prec;
     }
     else if (biased_exp == 0x7ff)
     {
-        count += puts_raw_noflush (mantissa ? "nan" : "infinity");
+        count += kputs_raw_noflush (mantissa ? "nan" : "infinity");
     }
     else
     {
@@ -497,14 +499,14 @@ kprintf_float_double (double dvalue, const struct kp_opts *opts)
 static inline int
 kprintf_char (int c)
 {
-    putc_noflush (c);
+    kputc_noflush (c);
     return 1;
 }
 
 static inline int
 kprintf_string (const char *str)
 {
-    return puts_raw (str);
+    return kputs_raw (str);
 }
 
 static int
@@ -601,9 +603,12 @@ kprintf_int_type (va_list args, enum kp_type type, enum kp_length length,
             return kprintf_int_bin (value.llval, opts, length);
 
         case KP_TYPE_UNSIGNED_PTR:
-            putc_noflush ('0');
-            putc_noflush ('x');
+            kputc_noflush ('0');
+            kputc_noflush ('x');
             return kprintf_int_hex (value.llval, opts, length) + 2;
+
+        default:
+            return -1;
     }
 
     return -1;
@@ -614,9 +619,9 @@ panic_message_kprintf (const char *format, ...)
 {
     va_list args;
     va_start (args, format);
-    puts ("***************************************");
-    puts ("********* KERNEL PANIC: HALT **********");
-    puts ("***************************************");
+    kputs ("***************************************");
+    kputs ("********* KERNEL PANIC: HALT **********");
+    kputs ("***************************************");
     kvprintf (args, format);
     va_end (args);
 }
@@ -656,7 +661,7 @@ kvprintf (va_list args, const char *format)
                         break;
 
                     default:
-                        putc_noflush (*format++);
+                        kputc_noflush (*format++);
                         count++;
                         break;
                 }
@@ -667,7 +672,7 @@ kvprintf (va_list args, const char *format)
                 switch (*format)
                 {
                     case '%':
-                        putc_noflush ('%');
+                        kputc_noflush ('%');
                         count++;
                         state = KP_STATE_DEFAULT;
                         format++;
@@ -728,7 +733,7 @@ kvprintf (va_list args, const char *format)
                         type = KP_TYPE_UNSIGNED_DECIMAL;
                         break;
 
-                    case 'S':
+                    case 'r':
                         type = KP_TYPE_UNSIGNED_STORAGE_SIZE;
                         break;
 

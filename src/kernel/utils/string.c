@@ -7,36 +7,50 @@
 #undef memset
 #undef memcmp
 
-void
+void *__attribute__ ((__optimize__ ("-fno-tree-loop-distribute-patterns")))
 memcpy (void *dest, const void *src, size_t len)
 {
+    uint8_t *dest_u8 = (uint8_t *) dest;
+    const uint8_t *src_u8 = (const uint8_t *) src;
+
     while (len--)
-        *((char *) dest++) = *((const char *) src++);
+        *dest_u8++ = *src_u8++;
+
+    return dest;
 }
 
-void
+void *__attribute__ ((__optimize__ ("-fno-tree-loop-distribute-patterns")))
 memmove (void *dest, const void *src, size_t len)
 {
+    uint8_t *dest_u8 = (uint8_t *) dest;
+    const uint8_t *src_u8 = (const uint8_t *) src;
+
     if (dest > src)
     {
         while (len--)
-            ((char *) dest)[len] = ((const char *) src)[len];
+            dest_u8[len] = src_u8[len];
     }
     else
     {
         while (len--)
-            *((char *) dest++) = *((const char *) src++);
+            *dest_u8++ = *src_u8++;
     }
+
+    return dest;
 }
 
-void
+void *__attribute__ ((__optimize__ ("-fno-tree-loop-distribute-patterns")))
 memset (void *dest, int c, size_t len)
 {
+    uint8_t *dest_u8 = (uint8_t *) dest;
+
     while (len--)
-        *((char *) dest++) = (char) c;
+        *dest_u8++ = (uint8_t) c;
+
+    return dest;
 }
 
-volatile int
+int __attribute__ ((__optimize__ ("-fno-tree-loop-distribute-patterns")))
 memcmp (const void *src1, const void *src2, size_t len)
 {
     for (size_t i = 0; i < len; i++)

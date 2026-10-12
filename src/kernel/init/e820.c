@@ -16,7 +16,8 @@ e820_init (const struct e820_table *table)
 
     kprintf ("e820: probing system memory information\n");
     kprintf ("e820: ptr=%p, size=%hu, count=%hu, entry_size=%hu\n",
-             table->entries, table->size, table->entry_count, entry_size);
+             (void *) table->entries, table->size, table->entry_count,
+             entry_size);
 
     for (uint16_t i = 0; i < table->entry_count; i++)
     {

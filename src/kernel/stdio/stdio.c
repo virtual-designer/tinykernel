@@ -15,8 +15,8 @@ enum vga_text_attr
 {
     VT_ATTR_SPECIAL = (1U << 7),
     VT_ATTR_BG_DEFAULT = 0U,
-    VT_ATTR_FG_DEFAULT = 0b0111U,
-    VT_ATTR_FG_BRIGHT = 0b1000U,
+    VT_ATTR_FG_DEFAULT = 0x07,
+    VT_ATTR_FG_BRIGHT = 0x08,
 };
 
 static void
@@ -115,16 +115,16 @@ vga_write_char (uint8_t c, uint8_t attr)
 }
 
 void
-putc_noflush (int c)
+kputc_noflush (int c)
 {
     vga_write_char ((uint8_t) c, VT_ATTR_BG_DEFAULT | VT_ATTR_FG_DEFAULT
                                   | VT_ATTR_FG_BRIGHT);
 }
 
 void
-putc (int c)
+kputc (int c)
 {
-    putc_noflush (c);
+    kputc_noflush (c);
     vga_update_cursor ();
 }
 
@@ -134,13 +134,13 @@ puts_raw_internal (const char *str)
     const char *begin = str;
 
     while (*str)
-        putc (*(str++));
+        kputc (*(str++));
 
     return (int) (str - begin);
 }
 
 int
-puts_raw (const char *str)
+kputs_raw (const char *str)
 {
     int ret = puts_raw_internal (str);
     vga_update_cursor ();
@@ -148,17 +148,17 @@ puts_raw (const char *str)
 }
 
 int
-puts_raw_noflush (const char *str)
+kputs_raw_noflush (const char *str)
 {
     int ret = puts_raw_internal (str);
     return ret;
 }
 
 int
-puts (const char *str)
+kputs (const char *str)
 {
     int ret = puts_raw_internal (str);
-    putc_noflush ('\n');
+    kputc_noflush ('\n');
     vga_update_cursor ();
     return ret + 1;
 }

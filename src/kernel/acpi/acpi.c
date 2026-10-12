@@ -20,7 +20,7 @@ acpi_try_get_rsdp (const struct boot_params *kargs)
         { .base = (void *) 0x000E0000, .len = 0x1FFFF },
     };
 
-    for (int i = 0; i < sizeof (regions) / sizeof (regions[0]); i++)
+    for (size_t i = 0; i < sizeof (regions) / sizeof (regions[0]); i++)
     {
         char *ptr = (char *) regions[i].base;
         kprintf ("ptr=%p\n", (void *) ptr);
@@ -34,7 +34,7 @@ acpi_try_get_rsdp (const struct boot_params *kargs)
                 const bool is_acpi_v2 = rsdp->revision == 2;
 
                 kprintf ("acpi: possible RSDP found at: addr=%p, rev=%u\n",
-                         rsdp, rsdp->revision);
+                         (void *) rsdp, rsdp->revision);
 
                 uint8_t sum = 0;
                 size_t length = is_acpi_v2 ? xsdp->length : sizeof (*rsdp);
@@ -44,9 +44,9 @@ acpi_try_get_rsdp (const struct boot_params *kargs)
 
                 if (sum)
                     kprintf ("acpi: RSDP checksum mismatch: addr=%p, sum=%u\n",
-                             rsdp, sum);
+                             (void *) rsdp, sum);
 
-                kprintf ("acpi: RSDP discovered: addr=%p\n", rsdp);
+                kprintf ("acpi: RSDP discovered: addr=%p\n", (void *) rsdp);
                 kprintf ("acpi: RSDT discovered: addr=%p\n",
                          (void *) (size_t) rsdp->rsdt_addr);
 
