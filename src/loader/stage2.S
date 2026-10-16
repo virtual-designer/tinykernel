@@ -203,7 +203,6 @@ nmi_disable:
     sti
     ret
 
-KERNEL_LOAD_ADDR = 0x100000
 KERNEL_LOAD_SECTORS = 41
 KERNEL_LOAD_LBA_START = 0x20
 
@@ -324,7 +323,7 @@ stage2_main:
     popl %ecx
     
     leal read_kernel_buffer, %esi
-    movl $KERNEL_LOAD_ADDR, %edi
+    movl $KERNEL_LOAD_PHY_ADDR_START, %edi
 
     movl $512, %eax
     mull %ecx
@@ -348,6 +347,17 @@ stage2_main:
 2:
     halt
 3:
+    // cld
+    // movl boot_params_ptr, %esi
+    // movl (%esi), %eax
+    // movl %eax, %esi
+    // leal boot_params, %edi
+    // movl $12, %ecx
+    // rep movsb
+
+    // leal boot_params, %edi
+    // movl %edi, boot_params_ptr
+
     call enter_long_mode
     halt
 
@@ -427,7 +437,7 @@ enter_long_mode:
     halt
 
 jump_to_kernel:
-    movq $KERNEL_LOAD_ADDR, %rdi
+    movq $KERNEL_LOAD_VIRT_ADDR_START, %rdi
     xorq %rsi, %rsi
     movl boot_params_ptr, %esi
     movb $KLOADER_STAGE2_SIGNATURE, 8(%rsi)
@@ -437,22 +447,45 @@ jump_to_kernel:
 .code32
 .type stage2_build_page_tables, @function
 stage2_build_page_tables:
+    cld
+    
     # Zero the page table region
     xorl %edx, %edx
-    movl stage2_page_tables_size, %eax
+    movl stage2_page_tables_size, %ecx
     leal stage2_page_tables_begin, %edi
     xorl %eax, %eax
     rep stosb
 
     # Build PML4[0]
     leal stage2_pml4, %edi
-    leal stage2_pdpt, %esi
+    leal stage2_pdpt0, %esi
     orl $0x03, %esi
     movl %esi, (%edi)
     movl $0, 4(%edi)
 
-    # Build PDPT[0]
-    leal stage2_pdpt, %edi
+    # Build PML4[511]
+    leal stage2_pml4, %edi
+    leal stage2_pdpt511, %esi
+    orl $0x03, %esi
+    movl %esi, (511 * 8)(%edi)
+    movl $0, (511 * 8 + 4)(%edi)
+
+    # Build PDPT511[510]
+    leal stage2_pdpt511, %edi
+    movl $0, %esi
+    orl $0x83, %esi
+    movl %esi, (510 * 8)(%edi)
+    movl $0, (510 * 8 + 4)(%edi)
+
+    # Build PDPT511[511]
+    leal stage2_pdpt511, %edi
+    movl $(1024 * 1024 * 1024), %esi
+    orl $0x83, %esi
+    movl %esi, (511 * 8)(%edi)
+    movl $0, (511 * 8 + 4)(%edi)
+
+    # Build PDPT0[0]
+    leal stage2_pdpt0, %edi
     leal stage2_pd, %esi
     orl $0x03, %esi
     movl %esi, (%edi)
@@ -480,26 +513,10 @@ stage2_build_page_tables:
     
     incl %ecx
     addl $8, %edi
-    cmpl $512, %ecx
+    cmpl $256, %ecx
     jb 1b
 
-    # Build PD[1] to PD[7]
-    leal stage2_pd, %edi
-    addl $8, %edi
-    movl $1, %ecx
-2:
-    movl %ecx, %eax
-    shll $21, %eax
-    orl $0x83, %eax
-
-    movl %eax, (%edi)
-    movl $0, 4(%edi)
-
-    incl %ecx
-    addl $8, %edi
-    cmpl $8, %ecx
-    jb 2b
-
+    xorl %eax, %eax
     ret
 
 .type shutdown, @function
@@ -542,7 +559,11 @@ stage2_pml4:
     .skip (512 * 8)
 
 .balign 4096
-stage2_pdpt:
+stage2_pdpt0:
+    .skip (512 * 8)
+
+.balign 4096
+stage2_pdpt511:
     .skip (512 * 8)
 
 .balign 4096
@@ -567,6 +588,10 @@ long_mode_not_supported_str:
 .align 8
 stage2_page_tables_size:
     .long (stage2_page_tables_end - stage2_page_tables_begin)
+
+.align 8
+boot_params:
+    .fill 12
 
 .bss
 .code32

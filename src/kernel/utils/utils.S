@@ -35,6 +35,18 @@ inb:
     inb %dx, %al
     ret
 
+.globl util_read_cr3
+.type util_read_cr3, @function
+util_read_cr3:
+    movq %cr3, %rax
+    ret
+
+.globl util_write_cr3
+.type util_write_cr3, @function
+util_write_cr3:
+    movq %rdi, %cr3
+    ret
+
 .globl save_registers
 .type save_registers, @function
 save_registers:

@@ -1,23 +1,28 @@
 #ifndef KERNEL_PG_H
 #define KERNEL_PG_H
 
+#include "init/e820.h"
 #include "stdint.h"
 
 #define PG_PML4_ENTRY_COUNT 512
 #define PG_PDPT_ENTRY_COUNT 512
-#define PG_PD_ENTRY_COUNT   512
-#define PG_PT_ENTRY_COUNT   512
+#define PG_PD_ENTRY_COUNT 512
+#define PG_PT_ENTRY_COUNT 512
 
-#define PG_PAGE_SIZE_SHIFT    12
-#define PG_PAGE_2M_SIZE_SHIFT 21
-#define PG_PAGE_1G_SIZE_SHIFT 30
+#define PG_PAGE_SIZE_SHIFT 12
+#define PG_PAGE_PD_SIZE_SHIFT 21
+#define PG_PAGE_PDPT_SIZE_SHIFT 30
+#define PG_PAGE_2M_SIZE_SHIFT PG_PAGE_PD_SIZE_SHIFT
+#define PG_PAGE_1G_SIZE_SHIFT PG_PAGE_PDPT_SIZE_SHIFT
+#define PG_PAGE_PML4_SIZE_SHIFT 39
 
-#define PG_PAGE_SIZE        (1U << PG_PAGE_SIZE_SHIFT)
-#define PG_PAGE_2M_SIZE     (1U << PG_PAGE_2M_SIZE_SHIFT)
-#define PG_PAGE_1G_SIZE     (1U << PG_PAGE_1G_SIZE_SHIFT)
+#define PG_PAGE_SIZE (1ULL << PG_PAGE_SIZE_SHIFT)
+#define PG_PAGE_2M_SIZE (1ULL << PG_PAGE_2M_SIZE_SHIFT)
+#define PG_PAGE_1G_SIZE (1ULL << PG_PAGE_1G_SIZE_SHIFT)
 
 #define PG_ALIGN_DOWN(addr, pg_size) ((addr) & ~((pg_size) - 1))
-#define PG_ALIGN_UP(addr, pg_size) (PG_ALIGN_DOWN ((addr) + (pg_size) - 1, pg_size))
+#define PG_ALIGN_UP(addr, pg_size)                                             \
+    (PG_ALIGN_DOWN ((addr) + (pg_size) - 1, pg_size))
 
 enum pg_access_mode
 {
@@ -187,5 +192,19 @@ struct pg_pt
 {
     struct pg_pt_entry entries[PG_PT_ENTRY_COUNT];
 } __attribute__ ((packed, aligned (4096)));
+
+#define pg_kcode_phy_to_virt(addr)                                             \
+    ((void *) (((char *) (addr)) + KERNEL_LOAD_VIRT_ADDR_OFFSET))
+#define pg_kcode_virt_to_phy(addr)                                             \
+    ((uint64_t) (((char *) (addr)) - KERNEL_LOAD_VIRT_ADDR_OFFSET))
+
+#define pg_shadow_phy_to_virt(addr)                                            \
+    ((void *) (((char *) (addr)) + KERNEL_SHADOW_VIRT_ADDR_OFFSET))
+#define pg_shadow_virt_to_phy(addr)                                            \
+    ((uint64_t) (((char *) (addr)) - KERNEL_SHADOW_VIRT_ADDR_OFFSET))
+#define pg_shadow_virt_to_real_virt(addr)                                      \
+    ((void *) (pg_shadow_virt_to_phy (addr)))
+
+void pg_kernel_map_init (const struct e820_table *e820_table);
 
 #endif /* KERNEL_PG_H */

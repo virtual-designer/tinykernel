@@ -11,7 +11,11 @@ QEMU ?= qemu-system-x86_64
 
 ASFLAGS := -g
 LDFLAGS :=
-CPPFLAGS := -I$(shell pwd)/src -I$(shell pwd)/src/kernel -I$(shell pwd)/src/kernel/include
+CPPFLAGS := \
+	-I$(shell pwd)/src \
+	-I$(shell pwd)/src/kernel \
+	-I$(shell pwd)/src/kernel/include
+
 CFLAGS := \
 	-g \
 	-std=gnu11 \
@@ -40,9 +44,24 @@ CFLAGS := \
 
 CCASFLAGS := $(CFLAGS) -D__ASM__
 
+KERNEL_LOAD_PHY_ADDR_START     := 0x100000
+KERNEL_LOAD_VIRT_ADDR_OFFSET   := 0xffffffff80000000
+KERNEL_SHADOW_VIRT_ADDR_OFFSET := 0xffff800000000000
+KERNEL_LOAD_VIRT_ADDR_START  := $(shell python3 -c "print(hex($(KERNEL_LOAD_VIRT_ADDR_OFFSET) + $(KERNEL_LOAD_PHY_ADDR_START)))")
+
+LOADER1_CPPFLAGS :=
+LOADER2_CPPFLAGS :=
+KERNEL_CPPFLAGS  :=
+
+CPPFLAGS += \
+	-DKERNEL_LOAD_PHY_ADDR_START=$(KERNEL_LOAD_PHY_ADDR_START) \
+	-DKERNEL_LOAD_VIRT_ADDR_START=$(KERNEL_LOAD_VIRT_ADDR_START) \
+	-DKERNEL_LOAD_VIRT_ADDR_OFFSET=$(KERNEL_LOAD_VIRT_ADDR_OFFSET) \
+	-DKERNEL_SHADOW_VIRT_ADDR_OFFSET=$(KERNEL_SHADOW_VIRT_ADDR_OFFSET)
+
 LOADER1_CFLAGS := -m32
 LOADER2_CFLAGS :=
-KERNEL_CFLAGS  := -m64
+KERNEL_CFLAGS  := -m64 -mcmodel=kernel
 
 LOADER1_CCASFLAGS := $(LOADER1_CFLAGS)
 LOADER2_CCASFLAGS := $(LOADER2_CFLAGS)
@@ -50,27 +69,32 @@ KERNEL_CCASFLAGS := $(KERNEL_CFLAGS)
 
 LOADER1_LDFLAGS :=
 LOADER2_LDFLAGS :=
-KERNEL_LDFLAGS :=
+KERNEL_LDFLAGS := \
+	-Wl,--defsym=__KERNEL_LOAD_PHY_ADDR_START_SYM=$(KERNEL_LOAD_PHY_ADDR_START) \
+	-Wl,--defsym=__KERNEL_LOAD_VIRT_ADDR_START_SYM=$(KERNEL_LOAD_VIRT_ADDR_START) \
+	-Wl,--defsym=__KERNEL_LOAD_VIRT_ADDR_OFFSET_SYM=$(KERNEL_LOAD_VIRT_ADDR_OFFSET) \
+	-Wl,--defsym=__KERNEL_SHADOW_VIRT_ADDR_OFFSET_SYM=$(KERNEL_SHADOW_VIRT_ADDR_OFFSET) \
+	-mcmodel=kernel
 
 v_as_ = $(v_as_0)
 v_as_0 = @echo "   AS   $@"; $(AS)
-v_as_1 = 
+v_as_1 = $(AS)
 
 v_cc_ = $(v_cc_0)
 v_cc_0 = @echo "   CC   $@"; $(CC)
-v_cc_1 = 
+v_cc_1 = $(CC)
 
 v_ccld_ = $(v_ccld_0)
 v_ccld_0 = @echo "   CCLD $@"; $(CCLD)
-v_ccld_1 = 
+v_ccld_1 = $(CCLD)
 
 v_ccas_ = $(v_ccas_0)
 v_ccas_0 = @echo "   CCAS $@"; $(CCAS)
-v_ccas_1 = 
+v_ccas_1 = $(CCAS)
 
 v_ld_ = $(v_ld_0)
 v_ld_0 = @echo "   LD   $@"; $(LD)
-v_ld_1 = 
+v_ld_1 = $(LD)
 
 V_AS = $(v_as_$(V))
 V_CC = $(v_cc_$(V))
@@ -111,7 +135,7 @@ KERNEL_SOURCES := \
 	src/kernel/utils/debug.c \
 	src/kernel/math/math.c \
 	src/kernel/math/consts.s \
-	src/kernel/mm/mm.c \
+	src/kernel/mm/falloc.c \
 	src/kernel/mm/pg.c \
 	src/kernel/isr/idt.c \
 	src/kernel/isr/isr.S \
@@ -127,6 +151,9 @@ $(IMG): $(LOADER1) $(LOADER2) $(KERNEL)
 	$(DD) if=$(LOADER1) of=$(IMG) bs=512 conv=notrunc
 	$(DD) if=$(LOADER2) of=$(IMG) bs=512 conv=notrunc seek=1
 	$(DD) if=$(KERNEL) of=$(IMG) bs=512 conv=notrunc seek=32
+	echo =============================
+	echo KERNEL_LOAD_VIRT_ADDR_START=$(KERNEL_LOAD_VIRT_ADDR_START)
+	echo =============================
 
 $(LOADER1_MAIN_OBJECT): $(LOADER1_MAIN_SOURCE)
 	$(V_CCAS) $(CPPFLAGS) $(LOADER1_CCASFLAGS) $(CCASFLAGS) -o $@ -c $<
@@ -144,13 +171,13 @@ src/kernel/isr/isr_entry.S: src/kernel/isr/genisr.sh
 	$(SHELL) src/kernel/isr/genisr.sh > $@
 
 src/kernel/%.o: src/kernel/%.S
-	$(V_CCAS) $(CPPFLAGS) $(KERNEL_CCASFLAGS) $(CCASFLAGS) -o $@ -c $<
+	$(V_CCAS) $(KERNEL_CPPFLAGS) $(CPPFLAGS) $(KERNEL_CCASFLAGS) $(CCASFLAGS) -o $@ -c $<
 
 src/kernel/%.o: src/kernel/%.s
-	$(V_CCAS) $(CPPFLAGS) $(KERNEL_CCASFLAGS) $(CCASFLAGS) -o $@ -c $<
+	$(V_CCAS) $(KERNEL_CPPFLAGS) $(CPPFLAGS) $(KERNEL_CCASFLAGS) $(CCASFLAGS) -o $@ -c $<
 
 src/kernel/%.o: src/kernel/%.c
-	$(V_CC) $(CPPFLAGS) $(KERNEL_CFLAGS) $(CFLAGS) -o $@ -c $<
+	$(V_CC) $(KERNEL_CPPFLAGS) $(CPPFLAGS) $(KERNEL_CFLAGS) $(CFLAGS) -o $@ -c $<
 
 $(KERNEL): $(KERNEL_OBJECTS)
 	$(V_CCLD) $(KERNEL_LDFLAGS) $(KERNEL_CFLAGS) $(CFLAGS) $(LDFLAGS) -Wl,--script kernel_cfg.ld -o $@ $^ -lgcc
@@ -162,7 +189,9 @@ clean:
 	$(RM) $(KERNEL_SOURCES_GENERATED)
 
 run: $(IMG)
-	$(QEMU) -cpu max -machine pc,acpi=on -m 8G -vga std -d int,cpu_reset -no-reboot -drive format=raw,file=$(IMG)
+	$(QEMU) -cpu max -machine pc,acpi=on -m 8G -monitor stdio \
+    	    -global isa-debugcon.iobase=0xe9 -vga std -d int,cpu_reset \
+			-no-reboot -drive format=raw,file=$(IMG)
 
 drun: $(IMG)
 	$(RM) $(IMG).lock

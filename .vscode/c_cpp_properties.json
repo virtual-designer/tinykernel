@@ -5,7 +5,12 @@
             "includePath": [
                 "${workspaceFolder}/**"
             ],
-            "defines": [],
+            "defines": [
+                "KERNEL_LOAD_PHY_ADDR_START=0",
+                "KERNEL_LOAD_VIRT_ADDR_START=0",
+                "KERNEL_LOAD_VIRT_ADDR_OFFSET=0",
+                "KERNEL_SHADOW_VIRT_ADDR_OFFSET=0"
+            ],
             "cStandard": "gnu17",
             "cppStandard": "gnu++17",
             "intelliSenseMode": "linux-gcc-x64",

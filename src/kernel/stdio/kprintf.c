@@ -552,6 +552,8 @@ kprintf_int_type (va_list args, enum kp_type type, enum kp_length length,
         size_t szval;
     } value = { 0 };
 
+    length = type == KP_TYPE_UNSIGNED_PTR ? KP_LEN_LONG_LONG : length;
+
     switch (length)
     {
         case KP_LEN_DEFAULT:
@@ -575,7 +577,7 @@ kprintf_int_type (va_list args, enum kp_type type, enum kp_length length,
             break;
 
         case KP_LEN_PTR:
-            value.llval = (size_t) va_arg (args, void *);
+            value.llval = va_arg (args, unsigned long long int);
             break;
 
         default:
@@ -605,7 +607,7 @@ kprintf_int_type (va_list args, enum kp_type type, enum kp_length length,
         case KP_TYPE_UNSIGNED_PTR:
             kputc_noflush ('0');
             kputc_noflush ('x');
-            return kprintf_int_hex (value.llval, opts, length) + 2;
+            return kprintf_int_hex (value.llval, opts, KP_LEN_LONG_LONG) + 2;
 
         default:
             return -1;

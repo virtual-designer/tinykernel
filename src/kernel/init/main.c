@@ -3,7 +3,8 @@
 #include "fpu/fpu.h"
 #include "isr/idt.h"
 #include "math/math.h"
-#include "mm/mm.h"
+#include "mm/falloc.h"
+#include "mm/pg.h"
 #include "stddef.h"
 #include "stdio/stdio.h"
 #include "utils/debug.h"
@@ -28,13 +29,14 @@ print_boot_info (const struct boot_params *kargs)
 static void
 mm_init (const struct boot_params *kargs)
 {
-    struct kmem_manager *mm = kmm_init_with_e820_table (kargs->e820_table);
+    struct falloc *fl = falloc_init_with_e820_table (kargs->e820_table);
 
-    if (!mm)
+    if (!fl)
         panic ("Failed to initialize kernel memory manager\n");
 
     kprintf ("\n");
-    kmm_print (mm);
+    falloc_print ();
+    pg_kernel_map_init (kargs->e820_table);
 }
 
 void
@@ -61,8 +63,8 @@ kmain (const struct boot_params *kargs)
     print_boot_info (kargs);
     e820_init (kargs->e820_table);
     mm_init (kargs);
-    idt_init ();
-    idt_load ();
-    acpi_try_get_rsdp (kargs);
+    // idt_init ();
+    // idt_load ();
+    // acpi_try_get_rsdp (kargs);
     halt ();
 }

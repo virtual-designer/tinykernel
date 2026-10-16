@@ -23,5 +23,7 @@ _Noreturn void halt (void);
 void outb (uint16_t port, uint8_t value);
 uint8_t inb (uint16_t port);
 void save_registers (struct register_state *out);
+void util_write_cr3 (uint64_t value);
+uint64_t util_read_cr3 (void);
 
 #endif /* KERNEL_UTILS_H */
